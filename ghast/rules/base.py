@@ -78,6 +78,7 @@ class Rule(ABC):
         remediation: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
         can_fix: bool = None,
+        severity: Optional[str] = None,
     ) -> Finding:
         """
         Create a Finding object for this rule
@@ -96,7 +97,7 @@ class Rule(ABC):
         """
         return Finding(
             rule_id=self.rule_id,
-            severity=self.severity,
+            severity=severity or self.severity,
             message=message,
             file_path=file_path,
             line_number=line_number,

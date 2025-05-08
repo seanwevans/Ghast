@@ -66,11 +66,7 @@ def supports_color() -> bool:
     Returns:
         True if color is supported, False otherwise
     """
-
-    if os.environ.get("NO_COLOR") is not None:
-        return False
-
-    if os.environ.get("GHAST_NO_COLOR") is not None:
+    if "NO_COLOR" in os.environ or "GHAST_NO_COLOR" in os.environ:
         return False
 
     plat = platform.system()
@@ -98,10 +94,10 @@ def colorize(text: str, color: str) -> str:
     Returns:
         Colorized text or original text if color not supported
     """
-    if not supports_color() or color not in COLORS:
-        return text
+    if supports_color() and color in COLORS:
+        return f"{COLORS[color]}{text}{COLORS['reset']}"
 
-    return f"{COLORS[color]}{text}{COLORS['reset']}"
+    return text
 
 
 def get_console_width() -> int:
