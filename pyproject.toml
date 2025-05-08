@@ -1,14 +1,14 @@
 [project]
 name = "ghast"
-version = "0.1.0"
+version = "0.2.0"
 description = "Audit and fix GitHub Actions workflows"
 readme = "README.md"
 license = { file = "LICENSE" }
-authors = [{ name = "Your Name", email = "you@example.com" }]
+authors = [{ name = "Sean Evans", email = "sean.w.evans@gmail.com" }]
 dependencies = [
     "pyyaml>=6.0",
-    "rich",  # for console output
-    "click", # for CLI
+    "rich",
+    "click",
 ]
 requires-python = ">=3.8"
 
