@@ -111,9 +111,7 @@ class Rule(ABC):
 class WorkflowRule(Rule):
     """Base class for rules that check workflow-level issues"""
 
-    def check_workflow_name(
-        self, workflow: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
+    def check_workflow_name(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """
         Check if the workflow has a name
 
@@ -137,9 +135,7 @@ class WorkflowRule(Rule):
 
         return findings
 
-    def check_workflow_permissions(
-        self, workflow: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
+    def check_workflow_permissions(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """
         Check if the workflow has explicit permissions set
 
@@ -244,9 +240,7 @@ class JobRule(Rule):
 
         return findings
 
-    def check_job_runner(
-        self, job_id: str, job: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
+    def check_job_runner(self, job_id: str, job: Dict[str, Any], file_path: str) -> List[Finding]:
         """
         Check if the job specifies a runner
 
@@ -391,9 +385,7 @@ class StepRule(Rule):
 class TriggerRule(Rule):
     """Base class for rules that check workflow trigger issues"""
 
-    def check_high_risk_triggers(
-        self, workflow: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
+    def check_high_risk_triggers(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """
         Check for high-risk workflow triggers
 
@@ -434,9 +426,7 @@ class TriggerRule(Rule):
 class TokenRule(Rule):
     """Base class for rules that check token and secret usage"""
 
-    def check_hardcoded_tokens(
-        self, workflow: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
+    def check_hardcoded_tokens(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """
         Check for hardcoded tokens in the workflow
 
@@ -479,9 +469,7 @@ class TokenRule(Rule):
             matches = re.finditer(pattern, workflow_str, re.IGNORECASE)
             for match in matches:
                 # Skip if token reference is in a proper secrets context
-                context_before = workflow_str[
-                    max(0, match.start() - 30) : match.start()
-                ]
+                context_before = workflow_str[max(0, match.start() - 30) : match.start()]
                 if (
                     "secrets." in context_before
                     or "${{" in context_before

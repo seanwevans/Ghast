@@ -296,9 +296,7 @@ def format_code_block(code: str, language: str = "") -> str:
     return f"\n{separator}\n{code}\n{separator}"
 
 
-def format_table(
-    headers: List[str], rows: List[List[str]], format_headers: bool = True
-) -> str:
+def format_table(headers: List[str], rows: List[List[str]], format_headers: bool = True) -> str:
     """
     Format a table for terminal output
 
@@ -314,20 +312,15 @@ def format_table(
         return ""
 
     # Calculate column widths
-    widths = [
-        max(len(str(row[i])) for row in [headers] + rows) for i in range(len(headers))
-    ]
+    widths = [max(len(str(row[i])) for row in [headers] + rows) for i in range(len(headers))]
 
     # Format headers
     if format_headers:
         header_row = " | ".join(
-            colorize(str(header).ljust(widths[i]), "bold")
-            for i, header in enumerate(headers)
+            colorize(str(header).ljust(widths[i]), "bold") for i, header in enumerate(headers)
         )
     else:
-        header_row = " | ".join(
-            str(header).ljust(widths[i]) for i, header in enumerate(headers)
-        )
+        header_row = " | ".join(str(header).ljust(widths[i]) for i, header in enumerate(headers))
 
     # Format separator
     separator = "-+-".join("-" * width for width in widths)
@@ -336,8 +329,7 @@ def format_table(
     formatted_rows = []
     for row in rows:
         formatted_row = " | ".join(
-            str(cell).ljust(widths[min(i, len(widths) - 1)])
-            for i, cell in enumerate(row)
+            str(cell).ljust(widths[min(i, len(widths) - 1)]) for i, cell in enumerate(row)
         )
         formatted_rows.append(formatted_row)
 

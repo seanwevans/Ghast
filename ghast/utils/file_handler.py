@@ -166,9 +166,7 @@ def safe_write_file(file_path: str, content: str, create_backup: bool = True) ->
         os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
 
         # Write to a temporary file first
-        fd, temp_path = tempfile.mkstemp(
-            dir=os.path.dirname(os.path.abspath(file_path))
-        )
+        fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(file_path)))
         try:
             with os.fdopen(fd, "w") as f:
                 f.write(content)
@@ -255,9 +253,7 @@ def list_workflow_files(repo_path: str) -> List[str]:
     ]
 
 
-def get_modified_workflows(
-    repo_path: str, backup_suffix: str = ".bak"
-) -> List[Tuple[str, str]]:
+def get_modified_workflows(repo_path: str, backup_suffix: str = ".bak") -> List[Tuple[str, str]]:
     """
     Get pairs of modified workflow files and their backups
 
@@ -281,9 +277,7 @@ def get_modified_workflows(
         workflow_path = os.path.join(workflows_dir, filename)
         backup_path = f"{workflow_path}{backup_suffix}"
 
-        if os.path.exists(backup_path) and not files_are_identical(
-            workflow_path, backup_path
-        ):
+        if os.path.exists(backup_path) and not files_are_identical(workflow_path, backup_path):
             result.append((workflow_path, backup_path))
 
     return result

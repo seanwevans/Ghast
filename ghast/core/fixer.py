@@ -44,9 +44,7 @@ def construct_mapping(self, node, deep=False):
     return mapping
 
 
-SafeLoader.add_constructor(
-    yaml.resolver.Resolver.DEFAULT_MAPPING_TAG, construct_mapping
-)
+SafeLoader.add_constructor(yaml.resolver.Resolver.DEFAULT_MAPPING_TAG, construct_mapping)
 
 
 class Fixer:
@@ -74,9 +72,7 @@ class Fixer:
             "check_runs_on": self.fix_runs_on,
         }
 
-    def fix_workflow_file(
-        self, file_path: str, findings: List[Finding]
-    ) -> Tuple[int, int]:
+    def fix_workflow_file(self, file_path: str, findings: List[Finding]) -> Tuple[int, int]:
         """
         Fix issues in a workflow file
 
@@ -118,11 +114,7 @@ class Fixer:
         try:
             for rule_id, rule_findings in findings_by_rule.items():
                 # Skip if auto-fix is disabled for this rule
-                if (
-                    not self.config.get("auto_fix", {})
-                    .get("rules", {})
-                    .get(rule_id, True)
-                ):
+                if not self.config.get("auto_fix", {}).get("rules", {}).get(rule_id, True):
                     self.fixes_skipped += len(rule_findings)
                     continue
 
@@ -258,9 +250,7 @@ class Fixer:
 
         return False
 
-    def fix_deprecated_actions(
-        self, workflow: Dict[str, Any], finding: Finding
-    ) -> bool:
+    def fix_deprecated_actions(self, workflow: Dict[str, Any], finding: Finding) -> bool:
         """
         Fix deprecated GitHub Actions
 
@@ -284,9 +274,7 @@ class Fixer:
         job_id = job_match.group(1)
 
         # Check if we have a replacement for this action
-        replacement = self.config.get("default_action_versions", {}).get(
-            deprecated_action
-        )
+        replacement = self.config.get("default_action_versions", {}).get(deprecated_action)
         if not replacement:
             return False
 
@@ -318,10 +306,7 @@ class Fixer:
 
             # Remove extension and convert to title case
             workflow_name = (
-                os.path.splitext(file_name)[0]
-                .replace("-", " ")
-                .replace("_", " ")
-                .title()
+                os.path.splitext(file_name)[0].replace("-", " ").replace("_", " ").title()
             )
 
             workflow["name"] = workflow_name
@@ -422,16 +407,12 @@ def fix_repository(
             continue
 
         # Only consider fixable findings
-        fixable_findings = [
-            f for f in findings if f.can_fix and f.rule_id in fixer.fixers
-        ]
+        fixable_findings = [f for f in findings if f.can_fix and f.rule_id in fixer.fixers]
         if not fixable_findings:
             continue
 
         click.echo(f"\nFixing issues in {file_path}...")
-        fixes_applied, fixes_skipped = fixer.fix_workflow_file(
-            file_path, fixable_findings
-        )
+        fixes_applied, fixes_skipped = fixer.fix_workflow_file(file_path, fixable_findings)
 
         total_fixes_applied += fixes_applied
         total_fixes_skipped += fixes_skipped

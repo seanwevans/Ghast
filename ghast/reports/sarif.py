@@ -20,7 +20,9 @@ from ..core import Finding, SEVERITY_LEVELS
 
 # SARIF schema version
 SARIF_VERSION = "2.1.0"
-SARIF_SCHEMA = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
+SARIF_SCHEMA = (
+    "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
+)
 
 # GitHub-specific properties
 GITHUB_SEVERITY_LEVELS = {
@@ -72,9 +74,7 @@ def rule_to_sarif_rule(
     sarif_rule = {
         "id": rule_id,
         "shortDescription": {"text": description or f"Rule {rule_id}"},
-        "properties": {
-            "security-severity": str(SECURITY_SEVERITY_SCORES.get(severity, 5.0))
-        },
+        "properties": {"security-severity": str(SECURITY_SEVERITY_SCORES.get(severity, 5.0))},
     }
 
     if help_text:
@@ -113,14 +113,10 @@ def finding_to_sarif_result(finding: Finding, repo_root: str = None) -> Dict[str
 
     # Add line/column information if available
     if finding.line_number is not None:
-        result["locations"][0]["physicalLocation"]["region"] = {
-            "startLine": finding.line_number
-        }
+        result["locations"][0]["physicalLocation"]["region"] = {"startLine": finding.line_number}
 
         if finding.column is not None:
-            result["locations"][0]["physicalLocation"]["region"][
-                "startColumn"
-            ] = finding.column
+            result["locations"][0]["physicalLocation"]["region"]["startColumn"] = finding.column
 
     # Add remediation if available
     if finding.remediation:
@@ -270,16 +266,16 @@ def generate_sarif_suppression_file(findings: List[Finding], output_path: str) -
 
     for finding in findings:
         # Generate a stable, unique hash for this finding
-        hash_input = f"{finding.rule_id}:{finding.file_path}:{finding.line_number or ''}:{finding.message}"
+        hash_input = (
+            f"{finding.rule_id}:{finding.file_path}:{finding.line_number or ''}:{finding.message}"
+        )
         finding_hash = hashlib.md5(hash_input.encode("utf-8")).hexdigest()
 
         suppression = {
             "guid": finding_hash,
             "kind": "inSource",
             "justification": "Known issue, suppressed",
-            "location": {
-                "physicalLocation": {"artifactLocation": {"uri": finding.file_path}}
-            },
+            "location": {"physicalLocation": {"artifactLocation": {"uri": finding.file_path}}},
             "properties": {
                 "rule_id": finding.rule_id,
                 "suppressed_at": datetime.now().isoformat(),

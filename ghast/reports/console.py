@@ -58,9 +58,7 @@ def colorize(text: str, color: str) -> str:
     return click.style(text, **{color: True})
 
 
-def format_finding(
-    finding: Finding, verbose: bool = False, show_remediation: bool = True
-) -> str:
+def format_finding(finding: Finding, verbose: bool = False, show_remediation: bool = True) -> str:
     """
     Format a single finding for console output
 
@@ -130,9 +128,7 @@ def format_findings_by_file(
         # Group by severity
         findings_by_severity = {}
         for level in SEVERITY_LEVELS:
-            findings_by_severity[level] = [
-                f for f in file_findings if f.severity == level
-            ]
+            findings_by_severity[level] = [f for f in file_findings if f.severity == level]
 
         # Output findings in severity order
         for level in SEVERITY_LEVELS:

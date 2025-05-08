@@ -156,11 +156,7 @@ class PoisonedPipelineExecutionRule(Rule):
                         )
 
             # Check for secrets: inherit with high-risk triggers
-            if (
-                "secrets" in job
-                and job["secrets"] == "inherit"
-                and high_risk_triggers_used
-            ):
+            if "secrets" in job and job["secrets"] == "inherit" and high_risk_triggers_used:
                 findings.append(
                     self.create_finding(
                         message=f"High-risk secret exposure: job '{job_id}' uses 'secrets: inherit' with {', '.join(high_risk_triggers_used)} trigger",
@@ -340,10 +336,7 @@ class TokenSecurityRule(TokenRule):
 
     def fix(self, workflow: Dict[str, Any], finding: Finding) -> bool:
         """Fix persist-credentials issues"""
-        if (
-            "actions/checkout" in finding.message
-            and "credential persistence" in finding.message
-        ):
+        if "actions/checkout" in finding.message and "credential persistence" in finding.message:
             job_match = re.search(r"job '([^']+)'", finding.message)
             step_match = re.search(r"step (\d+)", finding.message)
 
@@ -358,9 +351,7 @@ class TokenSecurityRule(TokenRule):
                     if 0 <= step_idx < len(steps):
                         step = steps[step_idx]
 
-                        if "uses" in step and step["uses"].startswith(
-                            "actions/checkout"
-                        ):
+                        if "uses" in step and step["uses"].startswith("actions/checkout"):
                             if "with" not in step:
                                 step["with"] = {}
 
@@ -396,9 +387,7 @@ class ActionPinningRule(StepRule):
 
                 if "uses" in step:
                     findings.extend(
-                        self.check_step_action_pinning(
-                            job_id, step_idx, step, file_path
-                        )
+                        self.check_step_action_pinning(job_id, step_idx, step, file_path)
                     )
 
         return findings

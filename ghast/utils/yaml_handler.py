@@ -91,9 +91,7 @@ def clean_positions(obj: Any) -> Any:
     if isinstance(obj, dict):
         # Create a new dict without position keys
         return {
-            k: clean_positions(v)
-            for k, v in obj.items()
-            if k != "__line__" and k != "__column__"
+            k: clean_positions(v) for k, v in obj.items() if k != "__line__" and k != "__column__"
         }
     elif isinstance(obj, list):
         return [clean_positions(item) for item in obj]
@@ -186,9 +184,7 @@ def is_github_actions_workflow(yaml_content: Dict[str, Any]) -> bool:
     return True
 
 
-def extract_line_from_file(
-    file_path: str, line_number: int, context: int = 2
-) -> List[str]:
+def extract_line_from_file(file_path: str, line_number: int, context: int = 2) -> List[str]:
     """
     Extract a line and surrounding context from a file
 
@@ -231,11 +227,7 @@ def get_element_at_path(yaml_content: Dict[str, Any], path: List[str]) -> Any:
     for key in path:
         if isinstance(element, dict) and key in element:
             element = element[key]
-        elif (
-            isinstance(element, list)
-            and isinstance(key, int)
-            and 0 <= key < len(element)
-        ):
+        elif isinstance(element, list) and isinstance(key, int) and 0 <= key < len(element):
             element = element[key]
         else:
             return None

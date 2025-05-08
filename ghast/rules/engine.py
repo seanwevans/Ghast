@@ -191,9 +191,7 @@ class RuleEngine:
             if severity_threshold and severity_threshold != rule.severity:
                 from ..core import SEVERITY_LEVELS
 
-                if SEVERITY_LEVELS.index(rule.severity) < SEVERITY_LEVELS.index(
-                    severity_threshold
-                ):
+                if SEVERITY_LEVELS.index(rule.severity) < SEVERITY_LEVELS.index(severity_threshold):
                     continue
 
             try:
@@ -250,9 +248,7 @@ class RuleEngine:
                 continue
 
             # Check if auto-fix is enabled for this rule
-            auto_fix = (
-                self.config.get("auto_fix", {}).get("rules", {}).get(rule_id, True)
-            )
+            auto_fix = self.config.get("auto_fix", {}).get("rules", {}).get(rule_id, True)
             if not auto_fix:
                 fixes_skipped += len(rule_findings)
                 continue
@@ -283,9 +279,7 @@ class RuleEngine:
         return {"fixes_applied": fixes_applied, "fixes_skipped": fixes_skipped}
 
 
-def create_rule_engine(
-    config: Optional[Dict[str, Any]] = None, strict: bool = False
-) -> RuleEngine:
+def create_rule_engine(config: Optional[Dict[str, Any]] = None, strict: bool = False) -> RuleEngine:
     """
     Create a rule engine with the specified configuration
 

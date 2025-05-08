@@ -31,9 +31,7 @@ class TimeoutRule(JobRule):
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
-            findings.extend(
-                self.check_job_timeout(job_id, job, file_path, self.min_steps)
-            )
+            findings.extend(self.check_job_timeout(job_id, job, file_path, self.min_steps))
 
         return findings
 
@@ -77,9 +75,7 @@ class ShellSpecificationRule(StepRule):
                 if not isinstance(step, dict):
                     continue
 
-                findings.extend(
-                    self.check_step_shell(job_id, step_idx, step, file_path)
-                )
+                findings.extend(self.check_step_shell(job_id, step_idx, step, file_path))
 
         return findings
 
@@ -136,10 +132,7 @@ class WorkflowNameRule(WorkflowRule):
 
             # Remove extension and convert to title case
             workflow_name = (
-                os.path.splitext(file_name)[0]
-                .replace("-", " ")
-                .replace("_", " ")
-                .title()
+                os.path.splitext(file_name)[0].replace("-", " ").replace("_", " ").title()
             )
 
             # Add the name field

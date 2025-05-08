@@ -131,11 +131,7 @@ def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, A
     result = base.copy()
 
     for key, override_value in override.items():
-        if (
-            key in result
-            and isinstance(result[key], dict)
-            and isinstance(override_value, dict)
-        ):
+        if key in result and isinstance(result[key], dict) and isinstance(override_value, dict):
             # Recursively merge nested dictionaries
             result[key] = merge_configs(result[key], override_value)
         else:
@@ -165,9 +161,7 @@ def validate_config(config: Dict[str, Any]) -> None:
             and rule_key != "default_action_versions"
         ):
             if rule_key in config and not isinstance(config[rule_key], bool):
-                raise ConfigurationError(
-                    f"Rule '{rule_key}' must be a boolean (true/false)"
-                )
+                raise ConfigurationError(f"Rule '{rule_key}' must be a boolean (true/false)")
 
     # Check severity thresholds
     valid_severities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
@@ -186,9 +180,7 @@ def validate_config(config: Dict[str, Any]) -> None:
         if not isinstance(config["auto_fix"], dict):
             raise ConfigurationError("'auto_fix' must be a dictionary")
 
-        if "enabled" in config["auto_fix"] and not isinstance(
-            config["auto_fix"]["enabled"], bool
-        ):
+        if "enabled" in config["auto_fix"] and not isinstance(config["auto_fix"]["enabled"], bool):
             raise ConfigurationError("'auto_fix.enabled' must be a boolean")
 
         if "rules" in config["auto_fix"]:
@@ -197,22 +189,16 @@ def validate_config(config: Dict[str, Any]) -> None:
 
             for rule, enabled in config["auto_fix"]["rules"].items():
                 if not isinstance(enabled, bool):
-                    raise ConfigurationError(
-                        f"'auto_fix.rules.{rule}' must be a boolean"
-                    )
+                    raise ConfigurationError(f"'auto_fix.rules.{rule}' must be a boolean")
 
     # Check timeout value
     if "default_timeout_minutes" in config:
         try:
             timeout = int(config["default_timeout_minutes"])
             if timeout <= 0:
-                raise ConfigurationError(
-                    "'default_timeout_minutes' must be a positive integer"
-                )
+                raise ConfigurationError("'default_timeout_minutes' must be a positive integer")
         except ValueError:
-            raise ConfigurationError(
-                "'default_timeout_minutes' must be a positive integer"
-            )
+            raise ConfigurationError("'default_timeout_minutes' must be a positive integer")
 
     # Check default action versions
     if "default_action_versions" in config:
@@ -306,9 +292,7 @@ def generate_default_config(output_path: Optional[str] = None) -> str:
     Raises:
         ConfigurationError: If configuration cannot be saved
     """
-    default_config_yaml = yaml.dump(
-        DEFAULT_CONFIG, default_flow_style=False, sort_keys=False
-    )
+    default_config_yaml = yaml.dump(DEFAULT_CONFIG, default_flow_style=False, sort_keys=False)
 
     if output_path:
         try:

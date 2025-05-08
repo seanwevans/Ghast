@@ -55,9 +55,7 @@ class WorkflowScanner:
         self.rule_registry = {}
         self.register_default_rules()
 
-    def register_rule(
-        self, rule_id, rule_func, severity="MEDIUM", enabled=True, description=None
-    ):
+    def register_rule(self, rule_id, rule_func, severity="MEDIUM", enabled=True, description=None):
         """
         Register a rule for scanning
 
@@ -171,9 +169,7 @@ class WorkflowScanner:
             description="Alias for check_shell",
         )
 
-    def scan_file(
-        self, file_path: str, severity_threshold: str = "LOW"
-    ) -> List[Finding]:
+    def scan_file(self, file_path: str, severity_threshold: str = "LOW") -> List[Finding]:
         """
         Scan a single workflow file for issues
 
@@ -199,9 +195,7 @@ class WorkflowScanner:
 
                 # Skip rules below severity threshold
                 rule_severity = rule_info["severity"]
-                if SEVERITY_LEVELS.index(rule_severity) < SEVERITY_LEVELS.index(
-                    severity_threshold
-                ):
+                if SEVERITY_LEVELS.index(rule_severity) < SEVERITY_LEVELS.index(severity_threshold):
                     continue
 
                 try:
@@ -233,9 +227,7 @@ class WorkflowScanner:
 
         return findings
 
-    def scan_directory(
-        self, directory_path: str, severity_threshold: str = "LOW"
-    ) -> List[Finding]:
+    def scan_directory(self, directory_path: str, severity_threshold: str = "LOW") -> List[Finding]:
         """
         Scan all workflow files in a directory
 
@@ -289,11 +281,7 @@ class WorkflowScanner:
         for job_id, job in jobs.items():
             steps = job.get("steps", [])
             for step_idx, step in enumerate(steps):
-                if (
-                    isinstance(step, dict)
-                    and "run" in step
-                    and isinstance(step["run"], str)
-                ):
+                if isinstance(step, dict) and "run" in step and isinstance(step["run"], str):
                     if "\n" in step["run"] and "shell" not in step:
                         findings.append(
                             Finding(
@@ -308,9 +296,7 @@ class WorkflowScanner:
 
         return findings
 
-    def check_deprecated(
-        self, workflow: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
+    def check_deprecated(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for deprecated actions"""
         findings = []
         deprecated_actions = [
@@ -385,9 +371,7 @@ class WorkflowScanner:
 
         return findings
 
-    def check_workflow_name(
-        self, workflow: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
+    def check_workflow_name(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for missing workflow name"""
         findings = []
 
@@ -405,9 +389,7 @@ class WorkflowScanner:
 
         return findings
 
-    def check_continue_on_error(
-        self, workflow: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
+    def check_continue_on_error(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for continue-on-error: true"""
         findings = []
 
@@ -475,9 +457,7 @@ class WorkflowScanner:
             matches = re.finditer(pattern, workflow_str, re.IGNORECASE)
             for match in matches:
                 # Skip if token reference is in a proper secrets context
-                context_before = workflow_str[
-                    max(0, match.start() - 30) : match.start()
-                ]
+                context_before = workflow_str[max(0, match.start() - 30) : match.start()]
                 if (
                     "secrets." in context_before
                     or "${{" in context_before
@@ -511,9 +491,7 @@ class WorkflowScanner:
 
         return findings
 
-    def check_reusable_inputs(
-        self, workflow: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
+    def check_reusable_inputs(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for reusable workflows that don't properly define inputs"""
         findings = []
 
@@ -535,9 +513,7 @@ class WorkflowScanner:
 
         return findings
 
-    def check_ppe_vulnerabilities(
-        self, workflow: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
+    def check_ppe_vulnerabilities(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for Poisoned Pipeline Execution vulnerabilities"""
         findings = []
         high_risk_triggers = {"pull_request_target", "workflow_run"}
@@ -610,11 +586,7 @@ class WorkflowScanner:
                 )
 
             # Check for secrets: inherit with high-risk triggers
-            if (
-                "secrets" in job
-                and job["secrets"] == "inherit"
-                and high_risk_triggers_used
-            ):
+            if "secrets" in job and job["secrets"] == "inherit" and high_risk_triggers_used:
                 findings.append(
                     Finding(
                         rule_id="check_ppe_vulnerabilities",
@@ -629,9 +601,7 @@ class WorkflowScanner:
 
         return findings
 
-    def check_command_injection(
-        self, workflow: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
+    def check_command_injection(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for potential command injection vulnerabilities"""
         findings = []
 
@@ -658,11 +628,7 @@ class WorkflowScanner:
         for job_id, job in jobs.items():
             steps = job.get("steps", [])
             for step_idx, step in enumerate(steps):
-                if (
-                    isinstance(step, dict)
-                    and "run" in step
-                    and isinstance(step["run"], str)
-                ):
+                if isinstance(step, dict) and "run" in step and isinstance(step["run"], str):
                     run_command = step["run"]
 
                     for pattern, desc in dangerous_patterns:
@@ -695,9 +661,7 @@ class WorkflowScanner:
 
         return findings
 
-    def check_env_injection(
-        self, workflow: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
+    def check_env_injection(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for unsafe modifications to GITHUB_ENV and GITHUB_PATH"""
         findings = []
 
@@ -722,11 +686,7 @@ class WorkflowScanner:
                     if step_idx <= checkout_step_idx:
                         continue
 
-                    if (
-                        isinstance(step, dict)
-                        and "run" in step
-                        and isinstance(step["run"], str)
-                    ):
+                    if isinstance(step, dict) and "run" in step and isinstance(step["run"], str):
                         run_command = step["run"]
 
                         if (
@@ -809,9 +769,7 @@ def scan_repository(
             stats["severity_counts"][finding.severity] = (
                 stats["severity_counts"].get(finding.severity, 0) + 1
             )
-            stats["rule_counts"][finding.rule_id] = (
-                stats["rule_counts"].get(finding.rule_id, 0) + 1
-            )
+            stats["rule_counts"][finding.rule_id] = stats["rule_counts"].get(finding.rule_id, 0) + 1
 
             if finding.can_fix:
                 stats["fixable_findings"] += 1
