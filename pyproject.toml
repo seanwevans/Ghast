@@ -1,0 +1,20 @@
+[project]
+name = "ghast"
+version = "0.1.0"
+description = "Audit and fix GitHub Actions workflows"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Your Name", email = "you@example.com" }]
+dependencies = [
+    "pyyaml>=6.0",
+    "rich",  # for console output
+    "click", # for CLI
+]
+requires-python = ">=3.8"
+
+[project.scripts]
+ghast = "ghast.cli:main"
+
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
