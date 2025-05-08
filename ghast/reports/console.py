@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Optional, TextIO
 import click
 
 from ..core import Finding, SEVERITY_LEVELS
+from ..utils.formatter import SEVERITY_COLORS
 
 COLORS = {
     "CRITICAL": "bright_red",
