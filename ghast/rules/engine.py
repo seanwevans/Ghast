@@ -45,15 +45,13 @@ class RuleEngine:
         self.strict = strict
         self.rules = []
 
-        # Register default rules
         self._register_default_rules()
 
-        # Apply configuration to rules
         self._apply_config()
 
     def _register_default_rules(self):
         """Register the default set of rules"""
-        # Security rules
+
         self.rules.append(PermissionsRule())
         self.rules.append(PoisonedPipelineExecutionRule())
         self.rules.append(CommandInjectionRule())
@@ -61,7 +59,6 @@ class RuleEngine:
         self.rules.append(TokenSecurityRule())
         self.rules.append(ActionPinningRule())
 
-        # Best practice rules
         self.rules.append(TimeoutRule())
         self.rules.append(ShellSpecificationRule())
         self.rules.append(WorkflowNameRule())
@@ -74,16 +71,13 @@ class RuleEngine:
         if not self.config:
             return
 
-        # Check if rules should be disabled based on config
         for rule in self.rules:
-            # Convert underscores to match config keys
+
             rule_id_key = rule.rule_id.replace("_", "_")
 
-            # Check if rule is enabled in config (default to True)
             if rule_id_key in self.config:
                 rule.enabled = bool(self.config[rule_id_key])
 
-            # Check for severity override
             severity_thresholds = self.config.get("severity_thresholds", {})
             if rule_id_key in severity_thresholds:
                 rule.severity = severity_thresholds[rule_id_key]
@@ -187,7 +181,6 @@ class RuleEngine:
             if not rule.enabled:
                 continue
 
-            # Skip rules below severity threshold if specified
             if severity_threshold and severity_threshold != rule.severity:
                 from ..core import SEVERITY_LEVELS
 
@@ -198,7 +191,7 @@ class RuleEngine:
                 rule_findings = rule.check(workflow, file_path)
                 findings.extend(rule_findings)
             except Exception as e:
-                # Don't fail the whole scan if one rule has an error
+
                 findings.append(
                     Finding(
                         rule_id=f"rule_error.{rule.rule_id}",
@@ -231,7 +224,6 @@ class RuleEngine:
         fixes_applied = 0
         fixes_skipped = 0
 
-        # Group findings by rule_id
         findings_by_rule = {}
         for finding in findings:
             if finding.can_fix:
@@ -239,7 +231,6 @@ class RuleEngine:
                     findings_by_rule[finding.rule_id] = []
                 findings_by_rule[finding.rule_id].append(finding)
 
-        # Fix findings by rule
         for rule_id, rule_findings in findings_by_rule.items():
             rule = self.get_rule_by_id(rule_id)
 
@@ -247,13 +238,11 @@ class RuleEngine:
                 fixes_skipped += len(rule_findings)
                 continue
 
-            # Check if auto-fix is enabled for this rule
             auto_fix = self.config.get("auto_fix", {}).get("rules", {}).get(rule_id, True)
             if not auto_fix:
                 fixes_skipped += len(rule_findings)
                 continue
 
-            # Apply fixes
             for finding in rule_findings:
                 if interactive:
                     import click
@@ -265,7 +254,6 @@ class RuleEngine:
                         fixes_skipped += 1
                         continue
 
-                # Apply the fix
                 try:
                     fixed = rule.fix(workflow, finding)
                     if fixed:

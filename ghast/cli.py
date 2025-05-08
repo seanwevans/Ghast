@@ -13,14 +13,12 @@ import json
 from pathlib import Path
 import click
 
-# Import from ghast modules
 from .utils.version import __version__
 from .utils.banner import _BANNER
 from .core import load_config, generate_default_config, save_config, scan_repository, fix_repository
 from .reports import generate_report, save_report, print_report, generate_full_report
 from .rules import create_rule_engine, RuleEngine
 
-# Output formats
 OUTPUT_FORMATS = ["text", "json", "sarif", "html"]
 
 
@@ -79,7 +77,7 @@ def scan(
 
     REPO_PATH: Path to the repository root or specific workflow file
     """
-    # Load config
+
     if config:
         try:
             config_data = load_config(config)
@@ -89,11 +87,9 @@ def scan(
     else:
         config_data = None
 
-    # Set colored output preference
     if no_color:
         os.environ["NO_COLOR"] = "1"
 
-    # Ensure repo_path is a directory or workflow file
     path = Path(repo_path)
     if path.is_file() and path.suffix in [".yml", ".yaml"]:
         click.echo(f"Scanning single workflow file: {path}")
@@ -108,7 +104,6 @@ def scan(
 
     click.echo(f"Found {len(files_to_scan)} workflow file(s) to scan")
 
-    # Run scan
     findings, stats = scan_repository(
         repo_path=repo_path,
         strict=strict,
@@ -116,7 +111,6 @@ def scan(
         severity_threshold=severity_threshold,
     )
 
-    # Generate report
     if output_file:
         save_report(
             findings,
@@ -128,7 +122,6 @@ def scan(
         )
         click.echo(f"Results written to {output_file}")
 
-        # Print summary to console
         summary = f"Scan complete: {stats['total_findings']} issues found ("
         summary += f"CRITICAL: {stats.get('severity_counts', {}).get('CRITICAL', 0)}, "
         summary += f"HIGH: {stats.get('severity_counts', {}).get('HIGH', 0)}, "
@@ -138,12 +131,9 @@ def scan(
     else:
         print_report(findings, stats, format=output, repo_path=repo_path, verbose=verbose)
 
-    # Exit with non-zero code if issues found above severity threshold
     from .core import SEVERITY_LEVELS
 
     threshold_index = SEVERITY_LEVELS.index(severity_threshold)
-
-    # Count findings at or above threshold
     severe_findings = sum(
         stats.get("severity_counts", {}).get(lvl, 0) for lvl in SEVERITY_LEVELS[threshold_index:]
     )
@@ -178,7 +168,6 @@ def fix(repo_path, strict, config, disable, interactive, dry_run, severity_thres
     if interactive and dry_run:
         click.echo("Note: --interactive has no effect in dry-run mode.")
 
-    # Load config
     if config:
         try:
             config_data = load_config(config)
@@ -188,14 +177,12 @@ def fix(repo_path, strict, config, disable, interactive, dry_run, severity_thres
     else:
         config_data = None
 
-    # Apply any disabled rules to the config
     if disable and len(disable) > 0:
         if config_data is None:
             config_data = {}
         for rule in disable:
             config_data[rule] = False
 
-    # Ensure repo_path is valid
     path = Path(repo_path)
     if path.is_file() and path.suffix in [".yml", ".yaml"]:
         click.echo(f"Scanning single workflow file: {path}")
@@ -209,7 +196,6 @@ def fix(repo_path, strict, config, disable, interactive, dry_run, severity_thres
             sys.exit(1)
         is_single_file = False
 
-    # First scan to find issues
     findings, stats = scan_repository(
         repo_path=repo_path,
         strict=strict,
@@ -217,14 +203,12 @@ def fix(repo_path, strict, config, disable, interactive, dry_run, severity_thres
         severity_threshold=severity_threshold,
     )
 
-    # Group findings by file
     findings_by_file = {}
     for finding in findings:
         if finding.file_path not in findings_by_file:
             findings_by_file[finding.file_path] = []
         findings_by_file[finding.file_path].append(finding)
 
-    # Apply fixes
     if not dry_run:
         fixes_applied, fixes_skipped = fix_repository(
             repo_path=repo_path,
@@ -233,17 +217,15 @@ def fix(repo_path, strict, config, disable, interactive, dry_run, severity_thres
             interactive=interactive,
         )
 
-        # Update stats
         stats["fixes_applied"] = fixes_applied
         stats["fixes_skipped"] = fixes_skipped
     else:
-        # In dry-run mode, count how many findings are fixable
+
         fixable_count = sum(1 for finding in findings if finding.can_fix)
         stats["fixes_applied"] = 0
         stats["fixes_skipped"] = 0
         stats["fixable_findings"] = fixable_count
 
-    # Print summary
     click.echo("\n----- Fix Summary -----")
     click.echo(f"Total issues found: {stats['total_findings']}")
 
@@ -287,7 +269,6 @@ def config(config, generate, output):
         config_data = load_config(config)
         click.echo("✅ Config loaded and valid.")
 
-        # Display the loaded configuration
         rule_engine = create_rule_engine(config_data)
         for rule_info in rule_engine.list_rules():
             click.echo(
@@ -307,17 +288,16 @@ def config(config, generate, output):
 )
 def rules(format):
     """List all available rules and what they do"""
-    # Create a rule engine with default config
+
     rule_engine = create_rule_engine()
     rules_list = rule_engine.list_rules()
 
     if format == "json":
-        # Convert to JSON format
+
         click.echo(json.dumps(rules_list, indent=2))
     else:
         click.echo("🔍 ghast supports the following rules:")
 
-        # Group by category
         by_category = {}
         for rule in rules_list:
             category = rule.get("category", "other")
@@ -325,12 +305,11 @@ def rules(format):
                 by_category[category] = []
             by_category[category].append(rule)
 
-        # Display by category
         for category, category_rules in by_category.items():
             click.echo(f"\n{category.upper()}:")
 
             for rule in sorted(category_rules, key=lambda r: r["id"]):
-                # Add color based on severity
+
                 severity_colors = {
                     "LOW": "blue",
                     "MEDIUM": "yellow",
@@ -354,35 +333,29 @@ def analyze(file_path):
     from .utils.yaml_handler import load_yaml_file_with_positions, is_github_actions_workflow
 
     try:
-        # Load the workflow file
+
         workflow = load_yaml_file_with_positions(file_path)
 
-        # Check if it's a valid workflow
         if not is_github_actions_workflow(workflow):
             click.echo(f"⚠️ The file {file_path} does not appear to be a GitHub Actions workflow")
             sys.exit(1)
 
-        # Create a rule engine
         rule_engine = create_rule_engine()
 
-        # Run all rules on the workflow
         findings = rule_engine.scan_workflow(workflow, file_path)
 
-        # Display analysis
         click.echo(f"Analysis of {file_path}:\n")
 
         if not findings:
             click.echo("✅ No issues found!")
             return
 
-        # Group by severity
         by_severity = {}
         for finding in findings:
             if finding.severity not in by_severity:
                 by_severity[finding.severity] = []
             by_severity[finding.severity].append(finding)
 
-        # Display findings by severity
         for severity in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
             if severity in by_severity:
                 severity_findings = by_severity[severity]

@@ -9,7 +9,6 @@ import json
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-# Import from parent package
 from ..core import Finding
 
 
@@ -31,7 +30,6 @@ def finding_to_dict(finding: Finding) -> Dict[str, Any]:
         "can_fix": finding.can_fix,
     }
 
-    # Add optional fields if they exist
     if finding.line_number is not None:
         result["line_number"] = finding.line_number
     if finding.column is not None:
@@ -58,19 +56,17 @@ def generate_json_report(
     Returns:
         JSON string representation of the report
     """
-    # Convert findings to dictionaries
+
     findings_data = [finding_to_dict(finding) for finding in findings]
 
-    # Create the report structure
     report = {
         "ghast_version": "0.2.0",  # This should be dynamically determined in a real implementation
         "generated_at": datetime.now().isoformat(),
         "findings": findings_data,
     }
 
-    # Add stats if requested
     if include_stats:
-        # Clean up any non-serializable values in stats
+
         clean_stats = {}
         for key, value in stats.items():
             if isinstance(value, (str, int, float, bool, list, dict)) or value is None:
@@ -78,7 +74,6 @@ def generate_json_report(
 
         report["stats"] = clean_stats
 
-    # Generate JSON with nice formatting
     return json.dumps(report, indent=2)
 
 
@@ -92,7 +87,7 @@ def generate_json_summary(stats: Dict[str, Any]) -> str:
     Returns:
         JSON string representation of the summary
     """
-    # Create summary structure
+
     summary = {
         "ghast_version": "0.2.0",  # This should be dynamically determined in a real implementation
         "generated_at": datetime.now().isoformat(),
@@ -106,7 +101,6 @@ def generate_json_summary(stats: Dict[str, Any]) -> str:
         },
     }
 
-    # Calculate scan duration if possible
     start_time = stats.get("start_time")
     end_time = stats.get("end_time")
     if start_time and end_time:
@@ -118,7 +112,6 @@ def generate_json_summary(stats: Dict[str, Any]) -> str:
         except (ValueError, TypeError):
             pass
 
-    # Generate JSON with nice formatting
     return json.dumps(summary, indent=2)
 
 

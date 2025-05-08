@@ -15,16 +15,13 @@ from typing import List, Dict, Any, Set
 from datetime import datetime
 import hashlib
 
-# Import from parent package
 from ..core import Finding, SEVERITY_LEVELS
 
-# SARIF schema version
 SARIF_VERSION = "2.1.0"
 SARIF_SCHEMA = (
     "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
 )
 
-# GitHub-specific properties
 GITHUB_SEVERITY_LEVELS = {
     "CRITICAL": "error",
     "HIGH": "error",
@@ -33,7 +30,6 @@ GITHUB_SEVERITY_LEVELS = {
     "INFO": "note",
 }
 
-# Security severity scores for GitHub (1.0-10.0)
 SECURITY_SEVERITY_SCORES = {
     "CRITICAL": 9.5,
     "HIGH": 8.0,
@@ -80,7 +76,6 @@ def rule_to_sarif_rule(
     if help_text:
         sarif_rule["helpText"] = {"text": help_text}
 
-    # Add full description if available
     if description:
         sarif_rule["fullDescription"] = {"text": description}
 
@@ -98,12 +93,11 @@ def finding_to_sarif_result(finding: Finding, repo_root: str = None) -> Dict[str
     Returns:
         SARIF result
     """
-    # Convert file path to relative path if repo_root is provided
+
     file_path = finding.file_path
     if repo_root and file_path.startswith(repo_root):
         file_path = os.path.relpath(file_path, repo_root)
 
-    # Create the result
     result = {
         "ruleId": finding.rule_id,
         "level": severity_to_sarif_level(finding.severity),
@@ -111,18 +105,15 @@ def finding_to_sarif_result(finding: Finding, repo_root: str = None) -> Dict[str
         "locations": [{"physicalLocation": {"artifactLocation": {"uri": file_path}}}],
     }
 
-    # Add line/column information if available
     if finding.line_number is not None:
         result["locations"][0]["physicalLocation"]["region"] = {"startLine": finding.line_number}
 
         if finding.column is not None:
             result["locations"][0]["physicalLocation"]["region"]["startColumn"] = finding.column
 
-    # Add remediation if available
     if finding.remediation:
         result["fixes"] = [{"description": {"text": finding.remediation}}]
 
-    # Add additional properties
     result["properties"] = {
         "severity": finding.severity,
     }
@@ -153,7 +144,7 @@ def generate_sarif_report(
     Returns:
         SARIF report as a JSON string
     """
-    # Create the base SARIF structure
+
     sarif = {
         "$schema": SARIF_SCHEMA,
         "version": SARIF_VERSION,
@@ -178,7 +169,6 @@ def generate_sarif_report(
         ],
     }
 
-    # Add scan time
     start_time = stats.get("start_time")
     end_time = stats.get("end_time")
     if start_time:
@@ -191,12 +181,10 @@ def generate_sarif_report(
         if end_time:
             sarif["runs"][0]["invocations"][0]["endTimeUtc"] = end_time
 
-    # Build set of unique rules
     rules_dict = {}
 
-    # Process findings and add unique rules
     for finding in findings:
-        # Add rule if it doesn't exist yet
+
         if finding.rule_id not in rules_dict:
             rule = rule_to_sarif_rule(
                 finding.rule_id,
@@ -207,11 +195,9 @@ def generate_sarif_report(
             rules_dict[finding.rule_id] = rule
             sarif["runs"][0]["tool"]["driver"]["rules"].append(rule)
 
-        # Add result
         result = finding_to_sarif_result(finding, repo_root)
         sarif["runs"][0]["results"].append(result)
 
-    # Generate JSON with nice formatting
     return json.dumps(sarif, indent=2)
 
 
@@ -265,7 +251,7 @@ def generate_sarif_suppression_file(findings: List[Finding], output_path: str) -
     suppressions = []
 
     for finding in findings:
-        # Generate a stable, unique hash for this finding
+
         hash_input = (
             f"{finding.rule_id}:{finding.file_path}:{finding.line_number or ''}:{finding.message}"
         )
@@ -282,7 +268,6 @@ def generate_sarif_suppression_file(findings: List[Finding], output_path: str) -
             },
         }
 
-        # Add line information if available
         if finding.line_number is not None:
             suppression["location"]["physicalLocation"]["region"] = {
                 "startLine": finding.line_number
@@ -290,7 +275,6 @@ def generate_sarif_suppression_file(findings: List[Finding], output_path: str) -
 
         suppressions.append(suppression)
 
-    # Create the suppressions file structure
     suppressions_file = {
         "$schema": SARIF_SCHEMA,
         "version": SARIF_VERSION,
@@ -302,6 +286,5 @@ def generate_sarif_suppression_file(findings: List[Finding], output_path: str) -
         ],
     }
 
-    # Write to file
     with open(output_path, "w") as f:
         json.dump(suppressions_file, f, indent=2)

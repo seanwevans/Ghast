@@ -6,10 +6,8 @@ It detects misconfigurations, security vulnerabilities, and anti-patterns in wor
 based on industry best practices.
 """
 
-# Import version information
-from .utils.version import __version__, get_version, get_version_info
+from ghast.utils.version import __version__, get_version, get_version_info
 
-# Import core functionality
 from .core import (
     Finding,
     WorkflowScanner,
@@ -24,16 +22,10 @@ from .core import (
     fix_repository,
 )
 
-# Import reporting functionality
 from .reports import generate_report, save_report, print_report, generate_full_report
 
-# Import rule engine
 from .rules import Rule, RuleEngine, create_rule_engine
 
-# Banner ASCII art
-from .banner import _BANNER
-
-# Public API
 __all__ = [
     # Version information
     "__version__",
@@ -64,13 +56,12 @@ __all__ = [
     "_BANNER",
 ]
 
-# Main function for CLI usage
+
 def main():
     """Main entry point for the ghast CLI tool"""
     import sys
     from .cli import cli
 
-    # Run the CLI with the provided arguments
     sys.exit(cli())
 
 

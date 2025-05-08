@@ -40,18 +40,16 @@ def find_repository_root(start_path: str) -> Optional[str]:
     """
     current_path = os.path.abspath(start_path)
 
-    # Handle file paths by using the parent directory
     if os.path.isfile(current_path):
         current_path = os.path.dirname(current_path)
 
-    # Walk up the directory tree
     while True:
         if is_git_repository(current_path):
             return current_path
 
         parent_path = os.path.dirname(current_path)
         if parent_path == current_path:
-            # Reached root directory
+
             return None
 
         current_path = parent_path
@@ -71,7 +69,6 @@ def has_github_workflows(path: str) -> bool:
     if not os.path.isdir(workflows_dir):
         return False
 
-    # Check for YAML files
     yaml_files = [f for f in os.listdir(workflows_dir) if f.endswith((".yml", ".yaml"))]
 
     return len(yaml_files) > 0
@@ -93,7 +90,6 @@ def create_file_backup(file_path: str, suffix: str = ".bak") -> str:
     """
     backup_path = f"{file_path}{suffix}"
 
-    # Copy the file
     shutil.copy2(file_path, backup_path)
 
     return backup_path
@@ -115,7 +111,6 @@ def create_timestamped_backup(file_path: str) -> str:
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_path = f"{file_path}.{timestamp}.bak"
 
-    # Copy the file
     shutil.copy2(file_path, backup_path)
 
     return backup_path
@@ -138,7 +133,6 @@ def restore_from_backup(backup_path: str, original_path: str) -> bool:
     if not os.path.exists(backup_path):
         return False
 
-    # Restore the file
     shutil.copy2(backup_path, original_path)
 
     return True
@@ -156,32 +150,29 @@ def safe_write_file(file_path: str, content: str, create_backup: bool = True) ->
     Returns:
         True if successful, False otherwise
     """
-    # Create backup if requested and the file exists
+
     backup_path = None
     if create_backup and os.path.exists(file_path):
         backup_path = create_file_backup(file_path)
 
     try:
-        # Create directory if it doesn't exist
+
         os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
 
-        # Write to a temporary file first
         fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(file_path)))
         try:
             with os.fdopen(fd, "w") as f:
                 f.write(content)
 
-            # Replace the original file with the temporary one
             shutil.move(temp_path, file_path)
             return True
         finally:
-            # Clean up the temporary file if it still exists
+
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
     except Exception as e:
         print(f"Error writing file: {e}")
 
-        # Restore from backup if available
         if backup_path and os.path.exists(backup_path):
             restore_from_backup(backup_path, file_path)
 
@@ -224,11 +215,10 @@ def files_are_identical(file1: str, file2: str) -> bool:
     Raises:
         FileNotFoundError: If either file doesn't exist
     """
-    # Fast check - compare file sizes
+
     if os.path.getsize(file1) != os.path.getsize(file2):
         return False
 
-    # Compute and compare hashes
     return compute_file_hash(file1) == compute_file_hash(file2)
 
 

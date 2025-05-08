@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Any, Optional, Set, Tuple
 from datetime import datetime
 
-# Severity levels in order from lowest to highest
 SEVERITY_LEVELS = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
 
@@ -66,11 +65,10 @@ class WorkflowScanner:
             enabled: Whether the rule is enabled by default
             description: Human-readable description of the rule
         """
-        # Check if rule is disabled in config
+
         if self.config and rule_id in self.config:
             enabled = self.config[rule_id]
 
-        # Override severity from config if available
         severity_config = self.config.get("severity_thresholds", {})
         if rule_id in severity_config:
             severity = severity_config[rule_id]
@@ -161,7 +159,6 @@ class WorkflowScanner:
             description="Detects unsafe modifications to GITHUB_ENV and GITHUB_PATH",
         )
 
-        # Alias for check_shell (for backward compatibility)
         self.register_rule(
             "check_inline_bash",
             self.check_shell,
@@ -193,7 +190,6 @@ class WorkflowScanner:
                 if not rule_info["enabled"]:
                     continue
 
-                # Skip rules below severity threshold
                 rule_severity = rule_info["severity"]
                 if SEVERITY_LEVELS.index(rule_severity) < SEVERITY_LEVELS.index(severity_threshold):
                     continue
@@ -203,7 +199,7 @@ class WorkflowScanner:
                     for finding in rule_findings:
                         findings.append(finding)
                 except Exception as e:
-                    # Don't fail the whole scan if one rule has an error
+
                     findings.append(
                         Finding(
                             rule_id=f"rule_error.{rule_id}",
@@ -249,8 +245,6 @@ class WorkflowScanner:
             findings.extend(file_findings)
 
         return findings
-
-    # Rule implementations
 
     def check_timeout(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for missing timeout-minutes in long jobs"""
@@ -357,7 +351,7 @@ class WorkflowScanner:
                     )
                 )
             elif isinstance(runs_on, list) and "self-hosted" in runs_on:
-                # This is less severe if labels are used
+
                 findings.append(
                     Finding(
                         rule_id="check_runs_on",
@@ -427,10 +421,8 @@ class WorkflowScanner:
         """Check for hardcoded tokens"""
         findings = []
 
-        # Convert to string to search for tokens
         workflow_str = str(workflow)
 
-        # Common patterns for tokens
         token_patterns = [
             (r'token\s*[:=]\s*["\']([A-Za-z0-9_\-]{20,})["\']', "Hardcoded token"),
             (
@@ -456,7 +448,7 @@ class WorkflowScanner:
         for pattern, desc in token_patterns:
             matches = re.finditer(pattern, workflow_str, re.IGNORECASE)
             for match in matches:
-                # Skip if token reference is in a proper secrets context
+
                 context_before = workflow_str[max(0, match.start() - 30) : match.start()]
                 if (
                     "secrets." in context_before
@@ -476,7 +468,6 @@ class WorkflowScanner:
                     )
                 )
 
-        # Check for toJson(secrets)
         if "toJson(secrets)" in workflow_str:
             findings.append(
                 Finding(
@@ -498,7 +489,7 @@ class WorkflowScanner:
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
             if job.get("uses") and "with" in job:
-                # Check if the job is using a reusable workflow
+
                 if not job.get("inputs"):
                     findings.append(
                         Finding(
@@ -518,7 +509,6 @@ class WorkflowScanner:
         findings = []
         high_risk_triggers = {"pull_request_target", "workflow_run"}
 
-        # Check for high-risk triggers
         on_section = workflow.get("on", {})
         triggers = set()
 
@@ -530,20 +520,17 @@ class WorkflowScanner:
         high_risk_triggers_used = triggers.intersection(high_risk_triggers)
 
         if not high_risk_triggers_used:
-            # No high-risk triggers, we can exit early
+
             return findings
 
-        # We have high-risk triggers, now check for dangerous patterns
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
             steps = job.get("steps", [])
 
-            # Track if checkout is used and what ref is being checked out
             checkout_found = False
             untrusted_ref_used = False
             untrusted_ref_value = None
 
-            # First pass - look for checkout of untrusted code
             for step in steps:
                 if isinstance(step, dict) and "uses" in step:
                     uses = step["uses"]
@@ -551,7 +538,6 @@ class WorkflowScanner:
                     if uses.startswith("actions/checkout"):
                         checkout_found = True
 
-                        # Check if ref parameter uses untrusted input
                         if "with" in step and "ref" in step["with"]:
                             ref = step["with"]["ref"]
                             dangerous_refs = [
@@ -568,7 +554,6 @@ class WorkflowScanner:
                                     untrusted_ref_value = ref
                                     break
 
-            # If we found checkout of untrusted code with high-risk triggers
             if checkout_found and untrusted_ref_used:
                 findings.append(
                     Finding(
@@ -585,7 +570,6 @@ class WorkflowScanner:
                     )
                 )
 
-            # Check for secrets: inherit with high-risk triggers
             if "secrets" in job and job["secrets"] == "inherit" and high_risk_triggers_used:
                 findings.append(
                     Finding(
@@ -644,9 +628,8 @@ class WorkflowScanner:
                                 )
                             )
 
-                    # Check for environment variable interpolation in commands
                     if "${{ env." in run_command:
-                        # This is a weaker finding - only flag if strict mode is on
+
                         if self.strict:
                             findings.append(
                                 Finding(
@@ -669,7 +652,6 @@ class WorkflowScanner:
         for job_id, job in jobs.items():
             steps = job.get("steps", [])
 
-            # Track if checkout is used
             checkout_step_idx = None
             for step_idx, step in enumerate(steps):
                 if (
@@ -680,7 +662,6 @@ class WorkflowScanner:
                     checkout_step_idx = step_idx
                     break
 
-            # If checkout is used, check for GITHUB_ENV or GITHUB_PATH modifications after it
             if checkout_step_idx is not None:
                 for step_idx, step in enumerate(steps):
                     if step_idx <= checkout_step_idx:
@@ -724,7 +705,6 @@ class WorkflowScanner:
         return findings
 
 
-# Utility function for scanning a repository
 def scan_repository(
     repo_path: str,
     strict: bool = False,

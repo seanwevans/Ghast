@@ -9,10 +9,8 @@ import sys
 from typing import List, Dict, Any, Optional
 import io
 
-# Import from parent package
 from ..core import Finding
 
-# Import specific report generators
 from .console import format_console_report, print_console_report
 from .json import generate_json_report, generate_json_summary
 from .sarif import generate_sarif_report
@@ -49,13 +47,11 @@ def generate_report(
     Raises:
         ValueError: If an invalid format is specified
     """
-    # Get short report if summary_only is True
+
     if summary_only:
         if format == "json":
             return generate_json_summary(stats)
-        # Other formats don't have dedicated summary methods, so we fall through
 
-    # Generate appropriate format
     if format == "text":
         return format_console_report(
             findings,
@@ -106,10 +102,9 @@ def save_report(
         IOError: If the file cannot be written
         ValueError: If an invalid format is specified
     """
-    # Create directory if it doesn't exist
+
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 
-    # Generate the report
     report = generate_report(
         findings,
         stats,
@@ -122,7 +117,6 @@ def save_report(
         summary_only=summary_only,
     )
 
-    # Write to file
     with open(output_path, "w") as f:
         f.write(report)
 
@@ -155,7 +149,7 @@ def print_report(
     Raises:
         ValueError: If an invalid format is specified
     """
-    # For text format, use specialized printer
+
     if format == "text":
         print_console_report(
             findings,
@@ -167,7 +161,7 @@ def print_report(
             output_stream=sys.stdout,
         )
     else:
-        # For other formats, generate and print
+
         report = generate_report(
             findings,
             stats,
@@ -196,14 +190,11 @@ def generate_html_report(
     Returns:
         HTML report as a string
     """
-    # This is a placeholder for future implementation
-    # For now, we'll generate a simple HTML report based on the text report
 
     text_report = format_console_report(
         findings, stats, verbose=True, show_remediation=True, show_summary=True
     )
 
-    # Basic HTML template
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -343,13 +334,11 @@ def generate_full_report(
         ValueError: If an invalid format is specified
         IOError: If the file cannot be written
     """
-    # Import here to avoid circular imports
+
     from ..core import scan_repository
 
-    # Scan the repository
     findings, stats = scan_repository(repo_path, strict=strict, config=config)
 
-    # Generate the report
     report = generate_report(
         findings,
         stats,
@@ -360,7 +349,6 @@ def generate_full_report(
         show_summary=True,
     )
 
-    # Save the report if output_path is provided
     if output_path:
         save_report(
             findings,

@@ -9,7 +9,6 @@ import re
 from typing import Tuple, Optional, Dict, Any, Union
 import datetime
 
-# Version information
 __version__ = "0.2.0"
 __release_date__ = "2025-05-08"
 

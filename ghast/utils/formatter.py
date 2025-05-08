@@ -12,7 +12,6 @@ import sys
 import shutil
 import platform
 
-# ANSI color codes
 COLORS = {
     "reset": "\033[0m",
     "bold": "\033[1m",
@@ -43,7 +42,6 @@ COLORS = {
     "bg_white": "\033[47m",
 }
 
-# Severity colors
 SEVERITY_COLORS = {
     "CRITICAL": "bright_red",
     "HIGH": "red",
@@ -52,7 +50,6 @@ SEVERITY_COLORS = {
     "INFO": "green",
 }
 
-# Severity symbols
 SEVERITY_SYMBOLS = {
     "CRITICAL": "🚨",
     "HIGH": "❗",
@@ -69,18 +66,16 @@ def supports_color() -> bool:
     Returns:
         True if color is supported, False otherwise
     """
-    # Return False if NO_COLOR environment variable is set
+
     if os.environ.get("NO_COLOR") is not None:
         return False
 
-    # Return False if explicitly disabled
     if os.environ.get("GHAST_NO_COLOR") is not None:
         return False
 
-    # Check platform-specific conditions
     plat = platform.system()
     if plat == "Windows":
-        # Windows 10 with VT support or ANSICON
+
         return (
             os.environ.get("ANSICON") is not None
             or os.environ.get("WT_SESSION") is not None
@@ -88,7 +83,7 @@ def supports_color() -> bool:
             or os.environ.get("TERM_PROGRAM") is not None
         )
     else:
-        # Unix-like platforms with a TTY
+
         return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
 
@@ -199,15 +194,15 @@ def format_header(text: str, level: int = 1) -> str:
     width = get_console_width()
 
     if level == 1:
-        # Main header with double line
+
         styled_text = colorize(text.upper(), "bold")
         return f"\n{styled_text}\n{'=' * min(len(text) + 4, width)}"
     elif level == 2:
-        # Section header with single line
+
         styled_text = colorize(text, "bold")
         return f"\n{styled_text}\n{'-' * min(len(text) + 4, width)}"
     else:
-        # Subsection header with no line
+
         return f"\n{colorize(text, 'bold')}"
 
 
@@ -311,10 +306,8 @@ def format_table(headers: List[str], rows: List[List[str]], format_headers: bool
     if not headers or not rows:
         return ""
 
-    # Calculate column widths
     widths = [max(len(str(row[i])) for row in [headers] + rows) for i in range(len(headers))]
 
-    # Format headers
     if format_headers:
         header_row = " | ".join(
             colorize(str(header).ljust(widths[i]), "bold") for i, header in enumerate(headers)
@@ -322,10 +315,8 @@ def format_table(headers: List[str], rows: List[List[str]], format_headers: bool
     else:
         header_row = " | ".join(str(header).ljust(widths[i]) for i, header in enumerate(headers))
 
-    # Format separator
     separator = "-+-".join("-" * width for width in widths)
 
-    # Format rows
     formatted_rows = []
     for row in rows:
         formatted_row = " | ".join(
@@ -333,7 +324,6 @@ def format_table(headers: List[str], rows: List[List[str]], format_headers: bool
         )
         formatted_rows.append(formatted_row)
 
-    # Combine everything
     return f"{header_row}\n{separator}\n" + "\n".join(formatted_rows)
 
 
@@ -413,7 +403,6 @@ def wrap_text(text: str, width: Optional[int] = None) -> str:
     if width is None:
         width = get_console_width()
 
-    # Simple word-wrap algorithm
     lines = []
     for paragraph in text.splitlines():
         if not paragraph:

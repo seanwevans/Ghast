@@ -11,10 +11,8 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional, TextIO
 import click
 
-# Import from parent package
 from ..core import Finding, SEVERITY_LEVELS
 
-# ANSI color codes
 COLORS = {
     "CRITICAL": "bright_red",
     "HIGH": "red",
@@ -73,21 +71,17 @@ def format_finding(finding: Finding, verbose: bool = False, show_remediation: bo
     severity = finding.severity
     symbol = get_severity_symbol(severity)
 
-    # Format the basic finding info
     formatted = f"{symbol} {colorize(severity, COLORS.get(severity, 'reset'))}: {finding.message}\n"
     formatted += f"  Rule: {finding.rule_id}\n"
 
-    # Add file information
     file_info = f"  File: {finding.file_path}"
     if finding.line_number is not None:
         file_info += f":{finding.line_number}"
     formatted += f"{file_info}\n"
 
-    # Add remediation advice if available
     if show_remediation and finding.remediation:
         formatted += f"  Remediation: {finding.remediation}\n"
 
-    # Add additional context in verbose mode
     if verbose and finding.context:
         formatted += "  Context:\n"
         for key, value in finding.context.items():
@@ -113,24 +107,20 @@ def format_findings_by_file(
     if not findings:
         return "No issues found."
 
-    # Group findings by file
     findings_by_file = {}
     for finding in findings:
         if finding.file_path not in findings_by_file:
             findings_by_file[finding.file_path] = []
         findings_by_file[finding.file_path].append(finding)
 
-    # Format findings for each file
     output = ""
     for file_path, file_findings in findings_by_file.items():
         output += f"\n{colorize('File: ' + file_path, 'bold')}\n"
 
-        # Group by severity
         findings_by_severity = {}
         for level in SEVERITY_LEVELS:
             findings_by_severity[level] = [f for f in file_findings if f.severity == level]
 
-        # Output findings in severity order
         for level in SEVERITY_LEVELS:
             level_findings = findings_by_severity[level]
             if not level_findings:
@@ -159,12 +149,10 @@ def format_findings_by_severity(
     if not findings:
         return "No issues found."
 
-    # Group by severity
     findings_by_severity = {}
     for level in SEVERITY_LEVELS:
         findings_by_severity[level] = [f for f in findings if f.severity == level]
 
-    # Format findings for each severity level
     output = ""
     for level in SEVERITY_LEVELS:
         level_findings = findings_by_severity[level]
@@ -193,18 +181,15 @@ def format_summary(stats: Dict[str, Any]) -> str:
     output = f"\n{colorize('Scan Summary', 'bold')}\n"
     output += "=" * 50 + "\n"
 
-    # Basic stats
     output += f"Total files scanned: {stats.get('total_files', 0)}\n"
     output += f"Total issues found: {stats.get('total_findings', 0)}\n"
 
-    # Severity breakdown
     output += "\nIssues by severity:\n"
     for level in SEVERITY_LEVELS:
         count = stats.get("severity_counts", {}).get(level, 0)
         if count > 0:
             output += f"  {colorize(level, COLORS.get(level, 'reset'))}: {count}\n"
 
-    # Rule breakdown
     if stats.get("rule_counts"):
         output += "\nIssues by rule:\n"
         for rule, count in sorted(
@@ -212,7 +197,6 @@ def format_summary(stats: Dict[str, Any]) -> str:
         ):
             output += f"  {rule}: {count}\n"
 
-    # Scan timing
     start_time = stats.get("start_time")
     end_time = stats.get("end_time")
     if start_time and end_time:
@@ -251,13 +235,11 @@ def format_console_report(
     """
     output = ""
 
-    # Add findings
     if group_by_severity:
         output += format_findings_by_severity(findings, verbose, show_remediation)
     else:
         output += format_findings_by_file(findings, verbose, show_remediation)
 
-    # Add summary
     if show_summary:
         output += format_summary(stats)
 

@@ -9,7 +9,6 @@ import yaml
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
-# Default configuration
 DEFAULT_CONFIG = {
     # Rule enablement
     "check_timeout": True,
@@ -96,20 +95,17 @@ def get_config_paths() -> List[str]:
     """
     paths = []
 
-    # Current directory
     paths.append(os.path.join(os.getcwd(), "ghast.yml"))
     paths.append(os.path.join(os.getcwd(), "ghast.yaml"))
     paths.append(os.path.join(os.getcwd(), ".ghast.yml"))
     paths.append(os.path.join(os.getcwd(), ".ghast.yaml"))
 
-    # User home directory
     home_dir = os.path.expanduser("~")
     paths.append(os.path.join(home_dir, ".ghast.yml"))
     paths.append(os.path.join(home_dir, ".ghast.yaml"))
     paths.append(os.path.join(home_dir, ".config", "ghast", "config.yml"))
     paths.append(os.path.join(home_dir, ".config", "ghast", "config.yaml"))
 
-    # Global config (Unix-like systems)
     if os.name == "posix":
         paths.append("/etc/ghast/config.yml")
         paths.append("/etc/ghast/config.yaml")
@@ -132,10 +128,10 @@ def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, A
 
     for key, override_value in override.items():
         if key in result and isinstance(result[key], dict) and isinstance(override_value, dict):
-            # Recursively merge nested dictionaries
+
             result[key] = merge_configs(result[key], override_value)
         else:
-            # Override or add value
+
             result[key] = override_value
 
     return result
@@ -151,7 +147,7 @@ def validate_config(config: Dict[str, Any]) -> None:
     Raises:
         ConfigurationError: If configuration is invalid
     """
-    # Check that all rules are booleans
+
     for rule_key in DEFAULT_CONFIG.keys():
         if (
             rule_key != "severity_thresholds"
@@ -163,7 +159,6 @@ def validate_config(config: Dict[str, Any]) -> None:
             if rule_key in config and not isinstance(config[rule_key], bool):
                 raise ConfigurationError(f"Rule '{rule_key}' must be a boolean (true/false)")
 
-    # Check severity thresholds
     valid_severities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     if "severity_thresholds" in config:
         if not isinstance(config["severity_thresholds"], dict):
@@ -175,7 +170,6 @@ def validate_config(config: Dict[str, Any]) -> None:
                     f"Invalid severity '{severity}' for rule '{rule}'. Must be one of: {', '.join(valid_severities)}"
                 )
 
-    # Check auto-fix settings
     if "auto_fix" in config:
         if not isinstance(config["auto_fix"], dict):
             raise ConfigurationError("'auto_fix' must be a dictionary")
@@ -191,7 +185,6 @@ def validate_config(config: Dict[str, Any]) -> None:
                 if not isinstance(enabled, bool):
                     raise ConfigurationError(f"'auto_fix.rules.{rule}' must be a boolean")
 
-    # Check timeout value
     if "default_timeout_minutes" in config:
         try:
             timeout = int(config["default_timeout_minutes"])
@@ -200,7 +193,6 @@ def validate_config(config: Dict[str, Any]) -> None:
         except ValueError:
             raise ConfigurationError("'default_timeout_minutes' must be a positive integer")
 
-    # Check default action versions
     if "default_action_versions" in config:
         if not isinstance(config["default_action_versions"], dict):
             raise ConfigurationError("'default_action_versions' must be a dictionary")
@@ -221,7 +213,6 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     """
     config = DEFAULT_CONFIG.copy()
 
-    # If config path is provided, try to load it
     if config_path:
         if not os.path.exists(config_path):
             raise ConfigurationError(f"Configuration file not found: {config_path}")
@@ -231,7 +222,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
                 user_config = yaml.safe_load(f)
 
             if user_config:
-                # Validate and merge with defaults
+
                 validate_config(user_config)
                 config = merge_configs(config, user_config)
         except yaml.YAMLError as e:
@@ -239,7 +230,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
         except Exception as e:
             raise ConfigurationError(f"Error loading configuration: {e}")
     else:
-        # Try to find config file in standard locations
+
         for path in get_config_paths():
             if os.path.exists(path):
                 try:
@@ -247,12 +238,12 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
                         user_config = yaml.safe_load(f)
 
                     if user_config:
-                        # Validate and merge with defaults
+
                         validate_config(user_config)
                         config = merge_configs(config, user_config)
                         break
                 except Exception:
-                    # Silently ignore errors in auto-detected config files
+
                     pass
 
     return config
@@ -270,7 +261,7 @@ def save_config(config: Dict[str, Any], config_path: str) -> None:
         ConfigurationError: If configuration cannot be saved
     """
     try:
-        # Create directory if it doesn't exist
+
         os.makedirs(os.path.dirname(os.path.abspath(config_path)), exist_ok=True)
 
         with open(config_path, "w") as f:
@@ -296,7 +287,7 @@ def generate_default_config(output_path: Optional[str] = None) -> str:
 
     if output_path:
         try:
-            # Create directory if it doesn't exist
+
             os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 
             with open(output_path, "w") as f:

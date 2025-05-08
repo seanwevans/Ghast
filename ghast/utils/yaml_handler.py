@@ -41,7 +41,6 @@ class FormattingPreservingDumper(yaml.SafeDumper):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Add representers for specific types if needed
 
 
 def load_yaml_with_positions(content: str) -> Dict[str, Any]:
@@ -89,7 +88,7 @@ def clean_positions(obj: Any) -> Any:
         Cleaned object without position information
     """
     if isinstance(obj, dict):
-        # Create a new dict without position keys
+
         return {
             k: clean_positions(v) for k, v in obj.items() if k != "__line__" and k != "__column__"
         }
@@ -110,10 +109,9 @@ def dump_yaml(obj: Any, stream=None, **kwargs) -> Optional[str]:
     Returns:
         YAML string if stream is None, otherwise None
     """
-    # Clean position info before dumping
+
     cleaned_obj = clean_positions(obj)
 
-    # Set defaults for better formatting
     kwargs.setdefault("sort_keys", False)
     kwargs.setdefault("default_flow_style", False)
 
@@ -168,19 +166,16 @@ def is_github_actions_workflow(yaml_content: Dict[str, Any]) -> bool:
     Returns:
         True if the content seems to be a GitHub Actions workflow
     """
-    # Check for common GitHub Actions workflow elements
+
     if not isinstance(yaml_content, dict):
         return False
 
-    # Check for 'on' section (triggers)
     if "on" not in yaml_content:
         return False
 
-    # Check for 'jobs' section
     if "jobs" not in yaml_content:
         return False
 
-    # If we have both on and jobs, it's likely a workflow
     return True
 
 

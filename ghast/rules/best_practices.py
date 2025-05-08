@@ -4,6 +4,7 @@ best_practices.py - Best practice rules for GitHub Actions
 This module provides rules focused on best practices rather than strict security issues.
 """
 
+import os
 from typing import List, Dict, Any, Set, Optional
 import re
 
@@ -127,21 +128,18 @@ class WorkflowNameRule(WorkflowRule):
     def fix(self, workflow: Dict[str, Any], finding: Finding) -> bool:
         """Fix missing workflow name"""
         if "name" not in workflow:
-            # Generate a name based on the file path
+
             file_name = finding.file_path.split("/")[-1]
 
-            # Remove extension and convert to title case
             workflow_name = (
                 os.path.splitext(file_name)[0].replace("-", " ").replace("_", " ").title()
             )
 
-            # Add the name field
             keys = list(workflow.keys())
             ordered_workflow = {"name": workflow_name}
             for key in keys:
                 ordered_workflow[key] = workflow[key]
 
-            # Update the workflow in-place
             workflow.clear()
             workflow.update(ordered_workflow)
 
@@ -224,10 +222,9 @@ class DeprecatedActionsRule(StepRule):
                     step = steps[step_idx]
 
                     if "uses" in step and step["uses"] == deprecated_action:
-                        # Get the replacement from context if available
+
                         replacement = finding.context.get("replacement")
 
-                        # Fallback to the mapping if not in context
                         if not replacement:
                             for depr, repl in self.deprecated_actions.items():
                                 if deprecated_action.startswith(depr):
@@ -302,7 +299,7 @@ class ReusableWorkflowRule(Rule):
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
             if job.get("uses") and "with" in job:
-                # Check if the job is using a reusable workflow
+
                 if not job.get("inputs"):
                     findings.append(
                         self.create_finding(
@@ -312,8 +309,3 @@ class ReusableWorkflowRule(Rule):
                     )
 
         return findings
-
-
-import os  # For the WorkflowNameRule
-
-# Additional rule classes can be added here

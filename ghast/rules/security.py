@@ -28,7 +28,6 @@ class PermissionsRule(WorkflowRule):
         """Check workflow and job permissions"""
         findings = self.check_workflow_permissions(workflow, file_path)
 
-        # Check jobs
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
             findings.extend(self.check_job_permissions(job_id, job, file_path))
@@ -41,7 +40,6 @@ class PermissionsRule(WorkflowRule):
             workflow["permissions"] = "read-all"
             return True
 
-        # Job level permission fix
         job_match = re.search(r"job '([^']+)'", finding.message)
         if job_match:
             job_id = job_match.group(1)
@@ -77,7 +75,6 @@ class PoisonedPipelineExecutionRule(Rule):
         """Check for PPE vulnerabilities"""
         findings = []
 
-        # Get triggers from 'on' section
         on_section = workflow.get("on", {})
         triggers = set()
 
@@ -86,17 +83,14 @@ class PoisonedPipelineExecutionRule(Rule):
         elif isinstance(on_section, list):
             triggers = set(on_section)
 
-        # Check for high-risk triggers
         high_risk_triggers_used = triggers.intersection(self.high_risk_triggers)
         if not high_risk_triggers_used:
             return findings  # No high-risk triggers, exit early
 
-        # We have high-risk triggers, now check for dangerous patterns
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
             steps = job.get("steps", [])
 
-            # Check for checkout of untrusted code with high-risk triggers
             checkout_found = False
             untrusted_ref_used = None
 
@@ -109,7 +103,6 @@ class PoisonedPipelineExecutionRule(Rule):
                 if uses.startswith("actions/checkout"):
                     checkout_found = True
 
-                    # Check if ref parameter uses untrusted input
                     if "with" in step and "ref" in step["with"]:
                         ref = step["with"]["ref"]
                         for dangerous_ref in self.dangerous_refs:
@@ -117,7 +110,6 @@ class PoisonedPipelineExecutionRule(Rule):
                                 untrusted_ref_used = ref
                                 break
 
-            # If checkout of untrusted code is found with high-risk triggers
             if checkout_found and untrusted_ref_used:
                 findings.append(
                     self.create_finding(
@@ -130,12 +122,10 @@ class PoisonedPipelineExecutionRule(Rule):
                     )
                 )
 
-                # Check for other dangerous operations in this job
                 for step_idx, step in enumerate(steps):
                     if not isinstance(step, dict):
                         continue
 
-                    # Check for script execution
                     if "run" in step:
                         findings.append(
                             self.create_finding(
@@ -145,7 +135,6 @@ class PoisonedPipelineExecutionRule(Rule):
                             )
                         )
 
-                    # Check for environment variable setting
                     if "GITHUB_ENV" in str(step) or "GITHUB_PATH" in str(step):
                         findings.append(
                             self.create_finding(
@@ -155,7 +144,6 @@ class PoisonedPipelineExecutionRule(Rule):
                             )
                         )
 
-            # Check for secrets: inherit with high-risk triggers
             if "secrets" in job and job["secrets"] == "inherit" and high_risk_triggers_used:
                 findings.append(
                     self.create_finding(
@@ -245,7 +233,6 @@ class EnvironmentInjectionRule(StepRule):
         for job_id, job in jobs.items():
             steps = job.get("steps", [])
 
-            # Track if checkout is used and at what step
             checkout_step_idx = None
 
             for step_idx, step in enumerate(steps):
@@ -256,7 +243,6 @@ class EnvironmentInjectionRule(StepRule):
                     checkout_step_idx = step_idx
                     break
 
-            # If checkout is used, check for GITHUB_ENV or GITHUB_PATH modifications after it
             if checkout_step_idx is not None:
                 for step_idx, step in enumerate(steps):
                     if step_idx <= checkout_step_idx or not isinstance(step, dict):
@@ -308,7 +294,6 @@ class TokenSecurityRule(TokenRule):
         """Check for token security issues"""
         findings = self.check_hardcoded_tokens(workflow, file_path)
 
-        # Check for persist-credentials in actions/checkout
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
             steps = job.get("steps", [])
