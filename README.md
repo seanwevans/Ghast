@@ -11,22 +11,7 @@ Inspired by this [article](https://www.wiz.io/blog/github-actions-security-guide
 - 🔍 Static analysis of `.github/workflows/*.yml`
 - 🛠️ Auto-fix mode for safe remediations
 - ✅ Configurable rules via YAML or CLI flags
-- 🧩 Subcommand CLI (`ghast scan`, `ghast fix`, etc.)
 - 🕵️ CI-friendly and scriptable
-
----
-
-## 📦 Installation
-
-```bash
-pip install .
-```
-
-Or with local editable mode for development:
-
-```bash
-pip install -e .
-```
 
 ---
 
