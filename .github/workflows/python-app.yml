@@ -51,7 +51,7 @@ jobs:
 
     - name: Run tests
       run: |
-        pytest --cov=ghast tests/
+        pytest --cov=ghast ghast/tests/
       shell: bash
 
   lint:
