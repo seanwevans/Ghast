@@ -1,0 +1,9 @@
+check_timeout: true
+check_shell: true
+check_deprecated: true
+check_runs_on: true
+check_workflow_name: true
+check_continue_on_error: true
+check_tokens: true
+check_inline_bash: true
+check_reusable_inputs: true
