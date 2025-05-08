@@ -1,0 +1,171 @@
+name: "Ghast CI"
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+# Define default permissions as restrictive as possible
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+
+    # Set timeout to prevent hung jobs
+    timeout-minutes: 15
+
+    steps:
+    # Checkout code with specific SHA commit pinning
+    - name: Checkout repository
+      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      with:
+        persist-credentials: false
+
+    # Setup Python with specific SHA commit pinning
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236 # v4.7.1
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[test]"
+        if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+      shell: bash
+
+    - name: Run tests
+      run: |
+        pytest --cov=ghast tests/
+      shell: bash
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      with:
+        persist-credentials: false
+
+    - name: Set up Python
+      uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236 # v4.7.1
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install black isort flake8 mypy types-PyYAML types-click
+        pip install -e .
+      shell: bash
+
+    - name: Lint with flake8
+      run: |
+        flake8 ghast --count --select=E9,F63,F7,F82 --show-source --statistics
+      shell: bash
+
+    - name: Check formatting with black
+      run: |
+        black --check ghast
+      shell: bash
+
+    - name: Check imports with isort
+      run: |
+        isort --check-only --profile black ghast
+      shell: bash
+
+    - name: Type check with mypy
+      run: |
+        mypy ghast
+      shell: bash
+
+  self-check:
+    name: Self-check with Ghast
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [test]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      with:
+        persist-credentials: false
+
+    - name: Set up Python
+      uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236 # v4.7.1
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install ghast
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+      shell: bash
+
+    - name: Run ghast on workflow files
+      run: |
+        ghast scan .github/workflows/ --severity-threshold MEDIUM
+      shell: bash
+
+  build-and-publish:
+    name: Build and publish Python distributions
+    runs-on: ubuntu-latest
+    needs: [test, lint, self-check]
+    # Only run on specific tags
+    if: startsWith(github.ref, 'refs/tags/v')
+    timeout-minutes: 15
+    
+    # For publishing to PyPI
+    permissions:
+      contents: read
+      id-token: write  # For trusted publishing
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+      with:
+        persist-credentials: false
+
+    - name: Set up Python
+      uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236 # v4.7.1
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build wheel
+      shell: bash
+
+    - name: Build package
+      run: |
+        python -m build
+      shell: bash
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@e53eb8b103ffcb59469888563dc324e3c8ba6f06 # v1.8.10
+      with:
+        user: __token__
+        # password is set from the repository secrets
+        password: ${{ secrets.PYPI_API_TOKEN }}
