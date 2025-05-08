@@ -1,20 +1,89 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "ghast"
 version = "0.2.0"
-description = "Audit and fix GitHub Actions workflows"
+description = "GitHub Actions Security Tool"
 readme = "README.md"
-license = { file = "LICENSE" }
-authors = [{ name = "Sean Evans", email = "sean.w.evans@gmail.com" }]
-dependencies = [
-    "pyyaml>=6.0",
-    "rich",
-    "click",
+authors = [
+    {name = "Sean Evans", email = "sean.w.evans@gmail.com"}
 ]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Security",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
+keywords = ["github", "actions", "security", "workflows", "ci", "cd", "pipeline", "static-analysis", "linter"]
 requires-python = ">=3.8"
+dependencies = [
+    "click>=8.0.0",
+    "pyyaml>=6.0",
+    "colorama>=0.4.4; platform_system=='Windows'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=22.0.0",
+    "isort>=5.0.0",
+    "flake8>=5.0.0",
+    "mypy>=0.9.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=3.0.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/seanwevans/ghast"
+"Bug Tracker" = "https://github.com/seanwevans/ghast/issues"
+"Documentation" = "https://github.com/seanwevans/ghast#readme"
+"Source Code" = "https://github.com/seanwevans/ghast"
 
 [project.scripts]
-ghast = "ghast.cli:main"
+ghast = "ghast:main"
 
-[build-system]
-requires = ["setuptools>=64", "wheel"]
-build-backend = "setuptools.build_meta"
+[tool.setuptools]
+packages = ["ghast"]
+
+[tool.setuptools.package-data]
+ghast = ["py.typed"]
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311"]
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+python_classes = "Test*"
