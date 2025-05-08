@@ -40,7 +40,6 @@ class Rule(ABC):
         self.category = category
         self.enabled = True
 
-        # Whether this rule can be auto-fixed
         self.can_fix = False
 
     @abstractmethod
@@ -275,14 +274,13 @@ class JobRule(Rule):
                 )
             )
         elif isinstance(runs_on, list) and "self-hosted" in runs_on:
-            # This is less severe if labels are used
+
             findings.append(
                 self.create_finding(
                     message=f"Job '{job_id}' uses self-hosted runner",
                     file_path=file_path,
                     remediation="Consider using GitHub-hosted runners for better security isolation",
                     can_fix=False,
-                    # Downgrade severity for labeled self-hosted runners
                     severity="LOW" if len(runs_on) > 1 else self.severity,
                 )
             )
@@ -347,7 +345,6 @@ class StepRule(Rule):
         if "uses" in step:
             action = step["uses"]
 
-            # Check if using a reference that could change
             if re.search(r"@(main|master)$", action):
                 findings.append(
                     self.create_finding(
@@ -358,7 +355,7 @@ class StepRule(Rule):
                         severity="HIGH",  # Unstable references are high risk
                     )
                 )
-            # Check if pinned to a major version only
+
             elif re.search(r"@v\d+$", action):
                 findings.append(
                     self.create_finding(
@@ -368,7 +365,7 @@ class StepRule(Rule):
                         can_fix=False,
                     )
                 )
-            # Check if pinned to a specific SHA
+
             elif not re.search(r"@[0-9a-f]{40}$", action):
                 findings.append(
                     self.create_finding(
@@ -399,7 +396,6 @@ class TriggerRule(Rule):
         findings = []
         high_risk_triggers = {"pull_request_target", "workflow_run"}
 
-        # Get triggers from 'on' section
         on_section = workflow.get("on", {})
         triggers = set()
 
@@ -408,7 +404,6 @@ class TriggerRule(Rule):
         elif isinstance(on_section, list):
             triggers = set(on_section)
 
-        # Check for high-risk triggers
         high_risk_triggers_used = triggers.intersection(high_risk_triggers)
         for trigger in high_risk_triggers_used:
             findings.append(
@@ -439,10 +434,8 @@ class TokenRule(Rule):
         """
         findings = []
 
-        # Convert to string to search for tokens
         workflow_str = str(workflow)
 
-        # Common patterns for tokens
         token_patterns = [
             (r'token\s*[:=]\s*["\']([A-Za-z0-9_\-]{20,})["\']', "Hardcoded token"),
             (
@@ -468,7 +461,7 @@ class TokenRule(Rule):
         for pattern, desc in token_patterns:
             matches = re.finditer(pattern, workflow_str, re.IGNORECASE)
             for match in matches:
-                # Skip if token reference is in a proper secrets context
+
                 context_before = workflow_str[max(0, match.start() - 30) : match.start()]
                 if (
                     "secrets." in context_before
@@ -486,7 +479,6 @@ class TokenRule(Rule):
                     )
                 )
 
-        # Check for toJson(secrets)
         if "toJson(secrets)" in workflow_str:
             findings.append(
                 self.create_finding(

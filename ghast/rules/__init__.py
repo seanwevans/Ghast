@@ -25,24 +25,20 @@ from .best_practices import (
 )
 
 __all__ = [
-    # Base classes
     "Rule",
     "WorkflowRule",
     "JobRule",
     "StepRule",
     "TriggerRule",
     "TokenRule",
-    # Rule engine
     "RuleEngine",
     "create_rule_engine",
-    # Security rules
     "PermissionsRule",
     "PoisonedPipelineExecutionRule",
     "CommandInjectionRule",
     "EnvironmentInjectionRule",
     "TokenSecurityRule",
     "ActionPinningRule",
-    # Best practice rules
     "TimeoutRule",
     "ShellSpecificationRule",
     "WorkflowNameRule",

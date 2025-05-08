@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """
 cli.py - Command-line interface for ghast
 

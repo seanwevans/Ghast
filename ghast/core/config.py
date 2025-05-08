@@ -10,7 +10,6 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 
 DEFAULT_CONFIG = {
-    # Rule enablement
     "check_timeout": True,
     "check_shell": True,
     "check_deprecated": True,
@@ -23,7 +22,6 @@ DEFAULT_CONFIG = {
     "check_ppe_vulnerabilities": True,
     "check_command_injection": True,
     "check_env_injection": True,
-    # Severity thresholds for each rule
     "severity_thresholds": {
         "check_timeout": "LOW",
         "check_shell": "LOW",
@@ -38,7 +36,6 @@ DEFAULT_CONFIG = {
         "check_command_injection": "HIGH",
         "check_env_injection": "HIGH",
     },
-    # Auto-fix settings
     "auto_fix": {
         "enabled": True,
         "rules": {
@@ -56,9 +53,7 @@ DEFAULT_CONFIG = {
             "check_env_injection": False,  # Too complex for auto-fix
         },
     },
-    # Default timeouts for auto-fix
     "default_timeout_minutes": 15,
-    # Default version replacements for deprecated actions
     "default_action_versions": {
         "actions/checkout@v1": "actions/checkout@v3",
         "actions/checkout@v2": "actions/checkout@v3",
@@ -69,7 +64,6 @@ DEFAULT_CONFIG = {
         "actions/cache@v1": "actions/cache@v3",
         "actions/cache@v2": "actions/cache@v3",
     },
-    # Reporting settings
     "report": {
         "include_remediation": True,
         "show_context": True,

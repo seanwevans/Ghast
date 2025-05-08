@@ -72,7 +72,6 @@ from .formatter import (
 )
 
 __all__ = [
-    # YAML handling
     "load_yaml_with_positions",
     "load_yaml_file_with_positions",
     "clean_positions",
@@ -82,7 +81,6 @@ __all__ = [
     "is_github_actions_workflow",
     "extract_line_from_file",
     "get_element_at_path",
-    # File handling
     "is_git_repository",
     "find_repository_root",
     "has_github_workflows",
@@ -95,7 +93,6 @@ __all__ = [
     "list_workflow_files",
     "get_modified_workflows",
     "ensure_directory_exists",
-    # Version utilities
     "get_version",
     "get_version_info",
     "parse_version",
@@ -107,7 +104,6 @@ __all__ = [
     "is_version_pinned",
     "is_unstable_reference",
     "__version__",
-    # Formatting
     "colorize",
     "format_severity",
     "format_rule_id",

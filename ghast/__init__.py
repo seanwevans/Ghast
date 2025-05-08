@@ -27,11 +27,9 @@ from .reports import generate_report, save_report, print_report, generate_full_r
 from .rules import Rule, RuleEngine, create_rule_engine
 
 __all__ = [
-    # Version information
     "__version__",
     "get_version",
     "get_version_info",
-    # Core functionality
     "Finding",
     "WorkflowScanner",
     "scan_repository",
@@ -43,16 +41,13 @@ __all__ = [
     "ConfigurationError",
     "fix_workflow_file",
     "fix_repository",
-    # Reporting
     "generate_report",
     "save_report",
     "print_report",
     "generate_full_report",
-    # Rules
     "Rule",
     "RuleEngine",
     "create_rule_engine",
-    # Banner
     "_BANNER",
 ]
 

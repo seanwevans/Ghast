@@ -112,7 +112,7 @@ def get_latest_action_version(action_name: str) -> Optional[str]:
     Returns:
         Latest version string, or None if unknown
     """
-    # Hardcoded latest versions for common actions
+
     latest_versions = {
         "actions/checkout": "v4",
         "actions/setup-python": "v4",
@@ -139,7 +139,7 @@ def parse_github_ref(ref: str) -> Dict[str, Any]:
     Returns:
         Dictionary with parsed components
     """
-    # Match owner/repo@version format
+
     match = re.match(r"^([^/]+)/([^@]+)@(.+)$", ref)
     if not match:
         return {"valid": False}
@@ -148,7 +148,6 @@ def parse_github_ref(ref: str) -> Dict[str, Any]:
     repo = match.group(2)
     version = match.group(3)
 
-    # Check if version is a semantic version
     semver_match = re.match(r"^v?(\d+)(?:\.(\d+)(?:\.(\d+))?)?$", version)
     if semver_match:
         major = int(semver_match.group(1))
@@ -168,7 +167,6 @@ def parse_github_ref(ref: str) -> Dict[str, Any]:
             "is_pinned": False,
         }
 
-    # Check if version is a commit SHA
     sha_match = re.match(r"^[0-9a-f]{40}$", version)
     if sha_match:
         return {
@@ -180,7 +178,6 @@ def parse_github_ref(ref: str) -> Dict[str, Any]:
             "is_pinned": True,
         }
 
-    # Check if version is a branch name
     return {
         "valid": True,
         "owner": owner,
