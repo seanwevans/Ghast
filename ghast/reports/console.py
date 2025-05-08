@@ -54,7 +54,22 @@ def colorize(text: str, color: str) -> str:
     if os.environ.get("NO_COLOR"):
         return text
 
-    return click.style(text, **{color: True})
+    color_map = {
+        "bright_red": "bright_red",
+        "bright_green": "bright_green",
+        "bright_yellow": "bright_yellow",
+        "bright_blue": "bright_blue",
+        "bright_magenta": "bright_magenta",
+        "bright_cyan": "bright_cyan",
+        "bright_white": "bright_white",
+    }
+
+    fg_color = color_map.get(color, color)
+
+    try:
+        return click.style(text, fg=fg_color)
+    except Exception:
+        return text
 
 
 def format_finding(finding: Finding, verbose: bool = False, show_remediation: bool = True) -> str:

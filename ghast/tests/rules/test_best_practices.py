@@ -336,7 +336,7 @@ def test_reusable_workflow_rule():
             "call_workflow": {
                 "uses": "owner/repo/.github/workflows/reusable.yml@main",
                 "with": {"param1": "value1"},
-                "inputs": {"param1": {"required": true, "type": "string"}},
+                "inputs": {"param1": {"required": True, "type": "string"}},
             }
         },
     }

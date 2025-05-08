@@ -72,15 +72,19 @@ class RuleEngine:
             return
 
         for rule in self.rules:
+            rule_id = rule.rule_id
+            rule_id_with_check = f"check_{rule_id}"
 
-            rule_id_key = rule.rule_id.replace("_", "_")
-
-            if rule_id_key in self.config:
-                rule.enabled = bool(self.config[rule_id_key])
+            if rule_id in self.config:
+                rule.enabled = bool(self.config[rule_id])
+            elif rule_id_with_check in self.config:
+                rule.enabled = bool(self.config[rule_id_with_check])
 
             severity_thresholds = self.config.get("severity_thresholds", {})
-            if rule_id_key in severity_thresholds:
-                rule.severity = severity_thresholds[rule_id_key]
+            if rule_id in severity_thresholds:
+                rule.severity = severity_thresholds[rule_id]
+            elif rule_id_with_check in severity_thresholds:
+                rule.severity = severity_thresholds[rule_id_with_check]
 
     def register_rule(self, rule: Rule):
         """
