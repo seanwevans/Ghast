@@ -32,11 +32,8 @@ Inspired by [this security guide](https://www.wiz.io/blog/github-actions-securit
 ## 📋 Installation
 
 ```bash
-# Install from PyPI
-pip install ghast
-
 # Install from source
-git clone https://github.com/yourusername/ghast.git
+git clone https://github.com/seanwevans/ghast.git
 cd ghast
 pip install -e .
 ```
