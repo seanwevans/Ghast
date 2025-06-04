@@ -15,6 +15,8 @@ from typing import List, Dict, Any, Set
 from datetime import datetime
 import hashlib
 
+from ..utils.version import __version__
+
 from ..core import Finding, SEVERITY_LEVELS
 
 SARIF_VERSION = "2.1.0"
@@ -129,7 +131,7 @@ def generate_sarif_report(
     stats: Dict[str, Any],
     repo_root: str = None,
     tool_name: str = "ghast",
-    tool_version: str = "0.2.0",
+    tool_version: str = __version__,
 ) -> str:
     """
     Generate a SARIF report from findings
@@ -207,7 +209,7 @@ def save_sarif_report(
     output_path: str,
     repo_root: str = None,
     tool_name: str = "ghast",
-    tool_version: str = "0.2.0",
+    tool_version: str = __version__,
 ) -> None:
     """
     Generate a SARIF report and save it to a file
@@ -280,7 +282,7 @@ def generate_sarif_suppression_file(findings: List[Finding], output_path: str) -
         "version": SARIF_VERSION,
         "runs": [
             {
-                "tool": {"driver": {"name": "ghast", "version": "0.2.0"}},
+                "tool": {"driver": {"name": "ghast", "version": __version__}},
                 "suppressions": suppressions,
             }
         ],
