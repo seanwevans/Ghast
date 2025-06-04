@@ -9,6 +9,8 @@ import json
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
+from ..utils.version import __version__
+
 from ..core import Finding
 
 
@@ -60,7 +62,7 @@ def generate_json_report(
     findings_data = [finding_to_dict(finding) for finding in findings]
 
     report = {
-        "ghast_version": "0.2.0",  # This should be dynamically determined in a real implementation
+        "ghast_version": __version__,
         "generated_at": datetime.now().isoformat(),
         "findings": findings_data,
     }
@@ -89,7 +91,7 @@ def generate_json_summary(stats: Dict[str, Any]) -> str:
     """
 
     summary = {
-        "ghast_version": "0.2.0",  # This should be dynamically determined in a real implementation
+        "ghast_version": __version__,
         "generated_at": datetime.now().isoformat(),
         "summary": {
             "total_files": stats.get("total_files", 0),
