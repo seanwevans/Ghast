@@ -154,7 +154,7 @@ def generate_sarif_report(
                     "driver": {
                         "name": tool_name,
                         "version": tool_version,
-                        "informationUri": "https://github.com/yourusername/ghast",
+                        "informationUri": "https://github.com/seanwevans/ghast",
                         "rules": [],
                     }
                 },
