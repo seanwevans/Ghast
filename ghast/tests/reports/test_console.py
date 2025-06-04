@@ -18,9 +18,10 @@ from ghast.reports.console import (
     print_console_report,
     colorize,
     get_severity_symbol,
-    COLORS,
+    SEVERITY_COLOR_NAMES,
     SEVERITY_COLORS,
 )
+from ghast.utils.formatter import COLORS as ANSI_COLORS
 
 
 def test_get_severity_symbol():
@@ -40,8 +41,8 @@ def test_colorize():
         colored_text = colorize("Test", "red")
         assert colored_text != "Test"  # Should have color codes
         assert "Test" in colored_text
-        assert COLORS["red"] in colored_text
-        assert COLORS["reset"] in colored_text
+        assert ANSI_COLORS["red"] in colored_text
+        assert ANSI_COLORS["reset"] in colored_text
 
     with patch.dict(os.environ, {"NO_COLOR": "1"}):
         plain_text = colorize("Test", "red")

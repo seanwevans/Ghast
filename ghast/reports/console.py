@@ -14,7 +14,8 @@ import click
 from ..core import Finding, SEVERITY_LEVELS
 from ..utils.formatter import SEVERITY_COLORS
 
-COLORS = {
+# Mapping of severity levels to Click color names used for console output
+SEVERITY_COLOR_NAMES = {
     "CRITICAL": "bright_red",
     "HIGH": "red",
     "MEDIUM": "yellow",
@@ -87,7 +88,7 @@ def format_finding(finding: Finding, verbose: bool = False, show_remediation: bo
     severity = finding.severity
     symbol = get_severity_symbol(severity)
 
-    formatted = f"{symbol} {colorize(severity, COLORS.get(severity, 'reset'))}: {finding.message}\n"
+    formatted = f"{symbol} {colorize(severity, SEVERITY_COLOR_NAMES.get(severity, 'reset'))}: {finding.message}\n"
     formatted += f"  Rule: {finding.rule_id}\n"
 
     file_info = f"  File: {finding.file_path}"
@@ -175,7 +176,7 @@ def format_findings_by_severity(
         if not level_findings:
             continue
 
-        output += f"\n{colorize(f'{level} Severity Issues ({len(level_findings)})', COLORS.get(level, 'reset'))}\n"
+        output += f"\n{colorize(f'{level} Severity Issues ({len(level_findings)})', SEVERITY_COLOR_NAMES.get(level, 'reset'))}\n"
         output += "=" * 50 + "\n"
 
         for finding in level_findings:
@@ -204,7 +205,7 @@ def format_summary(stats: Dict[str, Any]) -> str:
     for level in SEVERITY_LEVELS:
         count = stats.get("severity_counts", {}).get(level, 0)
         if count > 0:
-            output += f"  {colorize(level, COLORS.get(level, 'reset'))}: {count}\n"
+            output += f"  {colorize(level, SEVERITY_COLOR_NAMES.get(level, 'reset'))}: {count}\n"
 
     if stats.get("rule_counts"):
         output += "\nIssues by rule:\n"
