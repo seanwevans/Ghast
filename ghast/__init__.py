@@ -7,6 +7,7 @@ based on industry best practices.
 """
 
 from ghast.utils.version import __version__, get_version, get_version_info
+from .utils.banner import _BANNER
 
 from .core import (
     Finding,
