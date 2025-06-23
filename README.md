@@ -48,8 +48,15 @@ Inspired by [this security guide](https://www.wiz.io/blog/github-actions-securit
 
 ## 📋 Installation
 
+Install the latest release from PyPI:
+
 ```bash
-# Install from source
+pip install ghast
+```
+
+To install from source:
+
+```bash
 git clone https://github.com/seanwevans/ghast.git
 cd ghast
 pip install -e .
