@@ -233,3 +233,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Wiz](https://www.wiz.io/) for their comprehensive [GitHub Actions security guide](https://www.wiz.io/blog/github-actions-security-guide)
 - The security researchers who documented GitHub Actions vulnerabilities
 - The open source community for various security tools and libraries that inspired this project
+
+## Disclaimer
+
+This project is not affiliated with GitHub, and results produced by **ghast** do not guarantee complete security of your workflows.
