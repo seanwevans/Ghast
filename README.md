@@ -58,6 +58,15 @@ ghast report /path/to/repo --output security-report.html
 ghast scan /path/to/repo --output sarif --output-file ghast-results.sarif
 ```
 
+## 🧪 Testing
+
+Install test dependencies and run the suite with:
+
+```bash
+pip install -e .[test]
+pytest
+```
+
 ---
 
 ## 📊 Example Output
