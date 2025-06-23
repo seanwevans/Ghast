@@ -240,6 +240,9 @@ ghast helps identify and remediate these risks before they can be exploited.
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+Please note that this project adheres to a [Code of Conduct](CODE_OF_CONDUCT.md).
+By participating, you are expected to uphold this code.
+
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
