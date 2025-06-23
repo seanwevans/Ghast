@@ -27,6 +27,23 @@ Inspired by [this security guide](https://www.wiz.io/blog/github-actions-securit
 | **Medium** | Action Pinning, Deprecated Actions, Reusable Workflow Safety |
 | **Low** | Timeouts, Shell Specifications, Workflow Names |
 
+### Built-in Rules
+
+| ID | Category | Default Severity |
+|----|----------|------------------|
+| `permissions` | security | HIGH |
+| `poisoned_pipeline_execution` | security | CRITICAL |
+| `command_injection` | security | HIGH |
+| `environment_injection` | security | HIGH |
+| `token_security` | security | HIGH |
+| `action_pinning` | security | MEDIUM |
+| `timeout` | best-practice | LOW |
+| `shell_specification` | best-practice | LOW |
+| `workflow_name` | best-practice | LOW |
+| `deprecated_actions` | best-practice | MEDIUM |
+| `continue_on_error` | best-practice | MEDIUM |
+| `reusable_workflow_inputs` | best-practice | MEDIUM |
+
 ---
 
 ## 📋 Installation
