@@ -160,7 +160,7 @@ class Fixer:
         return self.fixes_applied, self.fixes_skipped
 
     def _clean_workflow(self, obj):
-        """Remove line/column tracking info before writing"""
+        """Remove line/column metadata from workflow objects before dumping."""
         if isinstance(obj, dict):
 
             if "__line__" in obj:
