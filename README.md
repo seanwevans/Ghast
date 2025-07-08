@@ -91,6 +91,21 @@ pip install -e .[test]
 pytest
 ```
 
+## 🛠️ Pre-commit Hooks
+
+Set up the pre-commit hooks to automatically format and lint code before each commit:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Run all hooks against the entire codebase with:
+
+```bash
+pre-commit run --all-files
+```
+
 ---
 
 ## 📊 Example Output
