@@ -186,6 +186,8 @@ ghast report /path/to/repo --output report.html
 
 ghast can be configured using a YAML configuration file:
 
+A complete example with default settings is available in `examples/ghast.yml`. Copy this file and modify it as needed.
+
 ```yaml
 # Enable/disable rules
 check_timeout: true
