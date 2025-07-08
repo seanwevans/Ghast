@@ -188,6 +188,8 @@ ghast scan /path/to/repo --output sarif --output-file ghast-results.sarif
 
 ghast can be configured using a YAML configuration file:
 
+A complete example with default settings is available in `examples/ghast.yml`. Copy this file and modify it as needed.
+
 ```yaml
 # Enable/disable rules
 check_timeout: true

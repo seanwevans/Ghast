@@ -1,0 +1,56 @@
+check_timeout: true
+check_shell: true
+check_deprecated: true
+check_runs_on: true
+check_workflow_name: true
+check_continue_on_error: true
+check_tokens: true
+check_inline_bash: true
+check_reusable_inputs: true
+check_ppe_vulnerabilities: true
+check_command_injection: true
+check_env_injection: true
+severity_thresholds:
+  check_timeout: LOW
+  check_shell: LOW
+  check_deprecated: MEDIUM
+  check_runs_on: MEDIUM
+  check_workflow_name: LOW
+  check_continue_on_error: MEDIUM
+  check_tokens: HIGH
+  check_inline_bash: LOW
+  check_reusable_inputs: MEDIUM
+  check_ppe_vulnerabilities: CRITICAL
+  check_command_injection: HIGH
+  check_env_injection: HIGH
+auto_fix:
+  enabled: true
+  rules:
+    check_timeout: true
+    check_shell: true
+    check_deprecated: true
+    check_workflow_name: true
+    check_runs_on: false
+    check_continue_on_error: false
+    check_tokens: false
+    check_inline_bash: true
+    check_reusable_inputs: false
+    check_ppe_vulnerabilities: false
+    check_command_injection: false
+    check_env_injection: false
+default_timeout_minutes: 15
+default_action_versions:
+  actions/checkout@v1: actions/checkout@v3
+  actions/checkout@v2: actions/checkout@v3
+  actions/setup-python@v1: actions/setup-python@v4
+  actions/setup-python@v2: actions/setup-python@v4
+  actions/setup-node@v1: actions/setup-node@v3
+  actions/setup-node@v2: actions/setup-node@v3
+  actions/cache@v1: actions/cache@v3
+  actions/cache@v2: actions/cache@v3
+report:
+  include_remediation: true
+  show_context: true
+  color_output: true
+  verbose: false
+  summary: true
