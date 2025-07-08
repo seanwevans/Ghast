@@ -178,8 +178,6 @@ ghast rules
 # Generate a comprehensive report
 ghast report /path/to/repo --output report.html
 
-# Generate SARIF output for GitHub Code Scanning
-ghast scan /path/to/repo --output sarif --output-file ghast-results.sarif
 ```
 
 ---
