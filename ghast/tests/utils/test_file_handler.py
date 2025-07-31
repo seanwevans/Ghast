@@ -234,9 +234,9 @@ def test_files_are_identical(temp_dir):
 
     file4 = os.path.join(temp_dir, "file4.txt")
     with open(file4, "w") as f:
-        f.write("different but same length")  # Same length as file3
+        f.write("same length entry")  # Same length as file3
 
-    assert len("different content") == len("different but same length")
+    assert len("different content") == len("same length entry")
     assert files_are_identical(file3, file4) is False
 
 
@@ -281,6 +281,8 @@ def test_get_modified_workflows(mock_repo, temp_dir):
     assert len(modified) == 0
 
     custom_backup = create_file_backup(test_workflow, suffix=".backup")
+    with open(test_workflow, "a") as f:
+        f.write("\n# Modified again\n")
     modified = get_modified_workflows(test_dir, backup_suffix=".backup")
     assert len(modified) > 0
 
