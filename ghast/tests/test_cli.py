@@ -204,6 +204,17 @@ def test_cli_fix_dry_run(cli_runner, patchable_workflow_file):
     assert "timeout-minutes" not in content  # Should not be fixed
 
 
+def test_cli_fix_interactive_dry_run(cli_runner, patchable_workflow_file):
+    """Test interactive flag with dry-run mode."""
+
+    result = cli_runner.invoke(
+        cli, ["fix", patchable_workflow_file, "--dry-run", "--interactive"]
+    )
+
+    assert result.exit_code == 0
+    assert "Note: --interactive has no effect in dry-run mode." in result.output
+
+
 def test_cli_fix_severity_threshold(cli_runner, patchable_workflow_file, temp_dir):
     """Test fixing with different severity thresholds."""
 
