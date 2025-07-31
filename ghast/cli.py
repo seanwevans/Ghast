@@ -13,7 +13,14 @@ import click
 
 from .utils.version import __version__
 from .utils.banner import _BANNER
-from .core import load_config, generate_default_config, save_config, scan_repository, fix_repository
+from .core import (
+    load_config,
+    generate_default_config,
+    save_config,
+    scan_repository,
+    fix_repository,
+    WorkflowScanner,
+)
 from .reports import generate_report, save_report, print_report, generate_full_report
 from .rules import create_rule_engine, RuleEngine
 
@@ -173,33 +180,50 @@ def fix(repo_path, strict, config, disable, interactive, dry_run, severity_thres
             click.echo(f"Error loading config file: {e}", err=True)
             sys.exit(1)
     else:
-        config_data = None
+        config_data = {}
 
     if disable and len(disable) > 0:
-        if config_data is None:
-            config_data = {}
         for rule in disable:
             config_data[rule] = False
 
     path = Path(repo_path)
+
     if path.is_file() and path.suffix in [".yml", ".yaml"]:
         click.echo(f"Scanning single workflow file: {path}")
-        file_to_fix = path
-        is_single_file = True
+        scanner = WorkflowScanner(strict=strict, config=config_data)
+        findings = scanner.scan_file(str(path), severity_threshold)
+
+        stats = {
+            "total_files": 1,
+            "total_findings": len(findings),
+            "severity_counts": {},
+            "rule_counts": {},
+            "fixable_findings": 0,
+        }
+
+        for finding in findings:
+            stats["severity_counts"][finding.severity] = (
+                stats["severity_counts"].get(finding.severity, 0) + 1
+            )
+            stats["rule_counts"][finding.rule_id] = (
+                stats["rule_counts"].get(finding.rule_id, 0) + 1
+            )
+            if finding.can_fix:
+                stats["fixable_findings"] += 1
+
     else:
         click.echo(f"Scanning repository: {path}")
         workflow_dir = path / ".github" / "workflows"
         if not workflow_dir.exists():
             click.echo(f"No workflows found at {workflow_dir}", err=True)
             sys.exit(1)
-        is_single_file = False
 
-    findings, stats = scan_repository(
-        repo_path=repo_path,
-        strict=strict,
-        config=config_data,
-        severity_threshold=severity_threshold,
-    )
+        findings, stats = scan_repository(
+            repo_path=repo_path,
+            strict=strict,
+            config=config_data,
+            severity_threshold=severity_threshold,
+        )
 
     findings_by_file = {}
     for finding in findings:
