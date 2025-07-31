@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 import hashlib
 import datetime
+import click
 
 
 def is_git_repository(path: str) -> bool:
@@ -170,7 +171,7 @@ def safe_write_file(file_path: str, content: str, create_backup: bool = True) ->
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
     except Exception as e:
-        print(f"Error writing file: {e}")
+        click.echo(f"Error writing file: {e}", err=True)
 
         if backup_path and os.path.exists(backup_path):
             restore_from_backup(backup_path, file_path)
