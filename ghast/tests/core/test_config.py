@@ -122,6 +122,14 @@ def test_validate_config_invalid_timeout():
         validate_config(invalid_config)
 
 
+def test_validate_config_unknown_key():
+    """Test that unknown config keys raise ConfigurationError."""
+    invalid_config = {"unknown_key": True}
+
+    with pytest.raises(ConfigurationError):
+        validate_config(invalid_config)
+
+
 def test_merge_configs():
     """Test merging configurations."""
     base_config = {

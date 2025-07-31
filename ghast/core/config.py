@@ -132,15 +132,20 @@ def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, A
 
 
 def validate_config(config: Dict[str, Any]) -> None:
-    """
-    Validate configuration structure and values
+    """Validate configuration structure and values"""
 
-    Args:
-        config: Configuration dictionary to validate
+    allowed_sections = {
+        "severity_thresholds",
+        "auto_fix",
+        "report",
+        "default_timeout_minutes",
+        "default_action_versions",
+    }
 
-    Raises:
-        ConfigurationError: If configuration is invalid
-    """
+    # Check for unknown top-level keys in the provided config
+    for key in config.keys():
+        if key not in DEFAULT_CONFIG and key not in allowed_sections:
+            raise ConfigurationError(f"Unknown configuration option '{key}'")
 
     for rule_key in DEFAULT_CONFIG.keys():
         if (
