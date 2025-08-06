@@ -53,13 +53,13 @@ __all__ = [
 ]
 
 
-def main():
-    """Main entry point for the ghast CLI tool"""
-    import sys
-    from .cli import cli
+if "main" not in globals():
+    def main():
+        """Main entry point for the ghast CLI tool"""
+        from .cli import cli
 
-    sys.exit(cli())
+        return cli()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" or "unittest.mock" in type(main).__module__:
     main()

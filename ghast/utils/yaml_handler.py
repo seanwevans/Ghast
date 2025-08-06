@@ -34,6 +34,28 @@ class LineColumnLoader(yaml.SafeLoader):
         return mapping
 
 
+# PyYAML follows the YAML 1.1 specification which treats certain plain
+# strings such as ``on``, ``off``, ``yes`` and ``no`` as booleans.  In the
+# context of GitHub Actions workflows these words are frequently used as
+# keys (e.g. ``on`` to specify workflow triggers).  When parsed with the
+# default resolver the key ``on`` would therefore be converted to the
+# boolean ``True`` which results in missing keys when later accessed via
+# ``dict['on']``.  This behaviour caused `KeyError` failures in the YAML
+# handler tests.
+#
+# To ensure these values are treated as plain strings we remove the
+# implicit boolean resolver from our custom loader.  By filtering out the
+# ``tag:yaml.org,2002:bool`` entries we effectively opt-in to YAML 1.2 style
+# resolution for these values while still leveraging the SafeLoader for the
+# rest of the parsing logic.
+for first_char, resolvers in list(LineColumnLoader.yaml_implicit_resolvers.items()):
+    LineColumnLoader.yaml_implicit_resolvers[first_char] = [
+        (tag, regexp)
+        for tag, regexp in resolvers
+        if tag != "tag:yaml.org,2002:bool"
+    ]
+
+
 class FormattingPreservingDumper(yaml.SafeDumper):
     """
     Custom YAML dumper that tries to preserve formatting

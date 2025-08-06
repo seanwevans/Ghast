@@ -74,17 +74,27 @@ class RuleEngine:
         for rule in self.rules:
             rule_id = rule.rule_id
             rule_id_with_check = f"check_{rule_id}"
+            short_rule_id = rule_id.replace("_rule", "").replace("_actions", "")
+            short_with_check = f"check_{short_rule_id}"
 
             if rule_id in self.config:
                 rule.enabled = bool(self.config[rule_id])
             elif rule_id_with_check in self.config:
                 rule.enabled = bool(self.config[rule_id_with_check])
+            elif short_rule_id in self.config:
+                rule.enabled = bool(self.config[short_rule_id])
+            elif short_with_check in self.config:
+                rule.enabled = bool(self.config[short_with_check])
 
             severity_thresholds = self.config.get("severity_thresholds", {})
             if rule_id in severity_thresholds:
                 rule.severity = severity_thresholds[rule_id]
             elif rule_id_with_check in severity_thresholds:
                 rule.severity = severity_thresholds[rule_id_with_check]
+            elif short_rule_id in severity_thresholds:
+                rule.severity = severity_thresholds[short_rule_id]
+            elif short_with_check in severity_thresholds:
+                rule.severity = severity_thresholds[short_with_check]
 
     def register_rule(self, rule: Rule):
         """
@@ -230,10 +240,12 @@ class RuleEngine:
 
         findings_by_rule = {}
         for finding in findings:
-            if finding.can_fix:
-                if finding.rule_id not in findings_by_rule:
-                    findings_by_rule[finding.rule_id] = []
-                findings_by_rule[finding.rule_id].append(finding)
+            if not finding.can_fix:
+                fixes_skipped += 1
+                continue
+            if finding.rule_id not in findings_by_rule:
+                findings_by_rule[finding.rule_id] = []
+            findings_by_rule[finding.rule_id].append(finding)
 
         for rule_id, rule_findings in findings_by_rule.items():
             rule = self.get_rule_by_id(rule_id)

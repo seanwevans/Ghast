@@ -42,10 +42,10 @@ def cli(ctx):
 
 
 @cli.command()
-@click.argument("repo_path", type=click.Path(exists=True))
+@click.argument("repo_path", type=click.Path())
 @click.option("--strict", is_flag=True, help="Enable strict mode (extra warnings)")
 @click.option(
-    "--config", type=click.Path(exists=True), help="Path to YAML config file for check settings"
+    "--config", type=click.Path(), help="Path to YAML config file for check settings"
 )
 @click.option("--disable", multiple=True, help="Disable specific rule(s)")
 @click.option(
@@ -84,6 +84,10 @@ def scan(
     """
 
     if config:
+        config_path = Path(config)
+        if not config_path.exists():
+            click.echo(f"Error loading config file: {config} not found", err=True)
+            sys.exit(1)
         try:
             config_data = load_config(config)
         except Exception as e:
@@ -97,24 +101,47 @@ def scan(
 
     path = Path(repo_path)
     if path.is_file() and path.suffix in [".yml", ".yaml"]:
-        click.echo(f"Scanning single workflow file: {path}")
-        files_to_scan = [path]
+        if output == "text":
+            click.echo(f"Scanning single workflow file: {path}")
+        scanner = WorkflowScanner(strict=strict, config=config_data)
+        findings = scanner.scan_file(str(path), severity_threshold)
+        from .core import SEVERITY_LEVELS
+
+        stats = {
+            "total_files": 1,
+            "total_findings": len(findings),
+            "severity_counts": {level: 0 for level in SEVERITY_LEVELS},
+            "rule_counts": {},
+            "fixable_findings": sum(1 for f in findings if f.can_fix),
+        }
+        for finding in findings:
+            stats["severity_counts"][finding.severity] = (
+                stats["severity_counts"].get(finding.severity, 0) + 1
+            )
+            stats["rule_counts"][finding.rule_id] = stats["rule_counts"].get(
+                finding.rule_id, 0
+            ) + 1
     else:
-        click.echo(f"Scanning repository: {path}")
+        if output == "text":
+            click.echo(f"Scanning repository: {path}")
         workflow_dir = path / ".github" / "workflows"
         if not workflow_dir.exists():
             click.echo(f"No workflows found at {workflow_dir}", err=True)
             sys.exit(1)
         files_to_scan = list(workflow_dir.glob("*.y*ml"))
+        if not files_to_scan:
+            click.echo(f"No workflows found at {workflow_dir}", err=True)
+            sys.exit(1)
 
-    click.echo(f"Found {len(files_to_scan)} workflow file(s) to scan")
+        if output == "text":
+            click.echo(f"Found {len(files_to_scan)} workflow file(s) to scan")
 
-    findings, stats = scan_repository(
-        repo_path=repo_path,
-        strict=strict,
-        config=config_data,
-        severity_threshold=severity_threshold,
-    )
+        findings, stats = scan_repository(
+            repo_path=repo_path,
+            strict=strict,
+            config=config_data,
+            severity_threshold=severity_threshold,
+        )
 
     if output_file:
         save_report(
