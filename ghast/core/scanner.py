@@ -183,8 +183,12 @@ class WorkflowScanner:
             with open(file_path, "r") as f:
                 content = yaml.safe_load(f)
 
-            if not content:
-                return findings
+            # Validate that the file appears to be a GitHub Actions workflow. If
+            # the top-level structure is not a mapping or required keys are
+            # missing, treat it as a parsing error so that users receive clear
+            # feedback.
+            if not isinstance(content, dict) or "jobs" not in content or "on" not in content:
+                raise yaml.YAMLError("File is not a valid GitHub Actions workflow")
 
             for rule_id, rule_info in self.rule_registry.items():
                 if not rule_info["enabled"]:
@@ -199,7 +203,6 @@ class WorkflowScanner:
                     for finding in rule_findings:
                         findings.append(finding)
                 except Exception as e:
-
                     findings.append(
                         Finding(
                             rule_id=f"rule_error.{rule_id}",
@@ -253,12 +256,26 @@ class WorkflowScanner:
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
             steps = job.get("steps", [])
-            if "timeout-minutes" not in job and len(steps) > 5:
+
+            # Count individual commands within multiline run steps to better
+            # estimate the actual amount of work performed. Previously we only
+            # counted the number of step objects which meant a single step with
+            # many commands would evade the timeout recommendation.
+            step_count = 0
+            for step in steps:
+                if isinstance(step, dict) and "run" in step and isinstance(step["run"], str):
+                    # Count non-empty lines in the run block
+                    lines = [ln for ln in step["run"].splitlines() if ln.strip()]
+                    step_count += max(1, len(lines))
+                else:
+                    step_count += 1
+
+            if "timeout-minutes" not in job and step_count > 5:
                 findings.append(
                     Finding(
                         rule_id="check_timeout",
                         severity="LOW",
-                        message=f"Job '{job_id}' has {len(steps)} steps but no timeout-minutes set",
+                        message=f"Job '{job_id}' has {step_count} steps but no timeout-minutes set",
                         file_path=file_path,
                         remediation=f"Add 'timeout-minutes: 15' to job '{job_id}'",
                         can_fix=True,
@@ -589,21 +606,27 @@ class WorkflowScanner:
         """Check for potential command injection vulnerabilities"""
         findings = []
 
+        # ``run_command`` contains only the script body, so the previous
+        # implementation erroneously looked for the literal ``"run:"`` prefix
+        # and therefore never matched any dangerous patterns.  This prevented
+        # the rule from flagging obvious injection vectors.  The regular
+        # expressions below operate directly on the command text, ensuring that
+        # untrusted GitHub event data is correctly detected.
         dangerous_patterns = [
             (
-                r"run:.*\${{.*github\.event\.(issue|comment|review).*}}",
+                r"\${{.*github\.event\.(issue|comment|review).*}}",
                 "Untrusted event data in shell command",
             ),
             (
-                r"run:.*\${{.*github\.head_ref.*}}",
+                r"\${{.*github\.head_ref.*}}",
                 "Untrusted head_ref in shell command",
             ),
             (
-                r"run:.*\${{.*github\.event\.pull_request\.title.*}}",
+                r"\${{.*github\.event\.pull_request\.title.*}}",
                 "Untrusted PR title in shell command",
             ),
             (
-                r"run:.*\${{.*github\.event\.pull_request\.body.*}}",
+                r"\${{.*github\.event\.pull_request\.body.*}}",
                 "Untrusted PR body in shell command",
             ),
         ]

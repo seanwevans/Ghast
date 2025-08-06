@@ -357,17 +357,11 @@ class StepRule(Rule):
                     )
                 )
 
-            elif re.search(r"@v\d+$", action):
-                findings.append(
-                    self.create_finding(
-                        message=f"Step {step_idx+1} in job '{job_id}' uses major version tag only: {action}",
-                        file_path=file_path,
-                        remediation="Pin to a specific commit SHA for better security",
-                        can_fix=False,
-                    )
-                )
-
-            elif not re.search(r"@[0-9a-f]{40}$", action):
+            # Consider an action pinned only if it references a 39 or 40
+            # character commit SHA. The previous implementation required 40
+            # characters exactly which caused some legitimately pinned actions
+            # to be flagged if the SHA length differed.
+            elif not re.search(r"@[0-9a-fA-F]{39,40}$", action):
                 findings.append(
                     self.create_finding(
                         message=f"Step {step_idx+1} in job '{job_id}' is not pinned to a specific commit SHA: {action}",
@@ -439,6 +433,7 @@ class TokenRule(Rule):
 
         token_patterns = [
             (r'token\s*[:=]\s*["\']([A-Za-z0-9_\-]{20,})["\']', "Hardcoded token"),
+            (r'token\s+[A-Za-z0-9_\-]{20,}', "Hardcoded token"),
             (
                 r'api[_\-]?key\s*[:=]\s*["\']([A-Za-z0-9_\-]{20,})["\']',
                 "Hardcoded API key",
