@@ -13,7 +13,6 @@ authors = [
 # Use an SPDX identifier for the license to avoid setuptools warnings during
 # builds and explicitly include the license file in the distribution.
 license = {text = "MIT"}
-license-files = ["LICENSE"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -64,6 +63,7 @@ ghast = "ghast:main"
 
 [tool.setuptools]
 packages = ["ghast"]
+license-files = ["LICENSE"]
 
 [tool.setuptools.package-data]
 ghast = ["py.typed"]
