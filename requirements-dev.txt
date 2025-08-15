@@ -1,0 +1,8 @@
+black==25.1.0
+isort==6.0.1
+flake8==7.3.0
+mypy==1.17.1
+types-PyYAML==6.0.12.20250809
+types-click==7.1.8
+build==1.3.0
+wheel==0.45.1
