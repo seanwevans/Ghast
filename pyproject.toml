@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64.0.0", "wheel"]
+requires = ["setuptools>=69.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -12,7 +12,7 @@ authors = [
 ]
 # Use an SPDX identifier for the license to avoid setuptools warnings during
 # builds and explicitly include the license file in the distribution.
-license = "MIT"
+license = {text = "MIT"}
 license-files = ["LICENSE"]
 classifiers = [
     "Development Status :: 4 - Beta",
