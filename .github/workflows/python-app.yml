@@ -120,7 +120,7 @@ jobs:
 
     - name: Run ghast on workflow files
       run: |
-        ghast scan .github/workflows/ --severity-threshold MEDIUM
+        ghast scan . --severity-threshold MEDIUM
       shell: bash
 
   build-and-publish:
