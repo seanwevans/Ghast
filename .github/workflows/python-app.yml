@@ -46,7 +46,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e ".[test]"
-        if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+        pip install -r requirements-dev.txt
       shell: bash
 
     - name: Run tests
@@ -74,7 +74,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install black isort flake8 mypy types-PyYAML types-click
+        pip install -r requirements-dev.txt
         pip install -e .
       shell: bash
 
@@ -155,7 +155,7 @@ jobs:
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build wheel
+        pip install -r requirements-dev.txt
       shell: bash
 
     - name: Build package
