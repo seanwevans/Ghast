@@ -1,8 +1,8 @@
 """
 sarif.py - SARIF format reporting for ghast
 
-This module provides functionality for formatting scanning results in SARIF 
-(Static Analysis Results Interchange Format) format, suitable for GitHub 
+This module provides functionality for formatting scanning results in SARIF
+(Static Analysis Results Interchange Format) format, suitable for GitHub
 integration and other static analysis tools.
 
 See https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/sarif-support-for-code-scanning

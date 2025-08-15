@@ -293,9 +293,7 @@ class Fixer:
         file_path = finding.file_path
         file_name = os.path.basename(file_path)
 
-        workflow_name = (
-            os.path.splitext(file_name)[0].replace("-", " ").replace("_", " ").title()
-        )
+        workflow_name = os.path.splitext(file_name)[0].replace("-", " ").replace("_", " ").title()
 
         workflow["name"] = workflow_name
 

@@ -65,7 +65,9 @@ class PermissionsRule(WorkflowRule):
 
         return findings
 
-    def check_job_permissions(self, job_id: str, job: Dict[str, Any], file_path: str) -> List[Finding]:
+    def check_job_permissions(
+        self, job_id: str, job: Dict[str, Any], file_path: str
+    ) -> List[Finding]:
         """Validate permissions for a specific job."""
         findings: List[Finding] = []
 

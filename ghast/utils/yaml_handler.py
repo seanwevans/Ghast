@@ -50,9 +50,7 @@ class LineColumnLoader(yaml.SafeLoader):
 # rest of the parsing logic.
 for first_char, resolvers in list(LineColumnLoader.yaml_implicit_resolvers.items()):
     LineColumnLoader.yaml_implicit_resolvers[first_char] = [
-        (tag, regexp)
-        for tag, regexp in resolvers
-        if tag != "tag:yaml.org,2002:bool"
+        (tag, regexp) for tag, regexp in resolvers if tag != "tag:yaml.org,2002:bool"
     ]
 
 

@@ -54,6 +54,7 @@ __all__ = [
 
 
 if "main" not in globals():
+
     def main():
         """Main entry point for the ghast CLI tool"""
         from .cli import cli

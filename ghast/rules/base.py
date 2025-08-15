@@ -433,7 +433,7 @@ class TokenRule(Rule):
 
         token_patterns = [
             (r'token\s*[:=]\s*["\']([A-Za-z0-9_\-]{20,})["\']', "Hardcoded token"),
-            (r'token\s+[A-Za-z0-9_\-]{20,}', "Hardcoded token"),
+            (r"token\s+[A-Za-z0-9_\-]{20,}", "Hardcoded token"),
             (
                 r'api[_\-]?key\s*[:=]\s*["\']([A-Za-z0-9_\-]{20,})["\']',
                 "Hardcoded API key",

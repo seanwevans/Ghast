@@ -207,9 +207,7 @@ def test_cli_fix_dry_run(cli_runner, patchable_workflow_file):
 def test_cli_fix_interactive_dry_run(cli_runner, patchable_workflow_file):
     """Test interactive flag with dry-run mode."""
 
-    result = cli_runner.invoke(
-        cli, ["fix", patchable_workflow_file, "--dry-run", "--interactive"]
-    )
+    result = cli_runner.invoke(cli, ["fix", patchable_workflow_file, "--dry-run", "--interactive"])
 
     assert result.exit_code == 0
     assert "Note: --interactive has no effect in dry-run mode." in result.output

@@ -44,9 +44,7 @@ def cli(ctx):
 @cli.command()
 @click.argument("repo_path", type=click.Path())
 @click.option("--strict", is_flag=True, help="Enable strict mode (extra warnings)")
-@click.option(
-    "--config", type=click.Path(), help="Path to YAML config file for check settings"
-)
+@click.option("--config", type=click.Path(), help="Path to YAML config file for check settings")
 @click.option("--disable", multiple=True, help="Disable specific rule(s)")
 @click.option(
     "--output",
@@ -118,9 +116,7 @@ def scan(
             stats["severity_counts"][finding.severity] = (
                 stats["severity_counts"].get(finding.severity, 0) + 1
             )
-            stats["rule_counts"][finding.rule_id] = stats["rule_counts"].get(
-                finding.rule_id, 0
-            ) + 1
+            stats["rule_counts"][finding.rule_id] = stats["rule_counts"].get(finding.rule_id, 0) + 1
     else:
         if output == "text":
             click.echo(f"Scanning repository: {path}")
@@ -232,9 +228,7 @@ def fix(repo_path, strict, config, disable, interactive, dry_run, severity_thres
             stats["severity_counts"][finding.severity] = (
                 stats["severity_counts"].get(finding.severity, 0) + 1
             )
-            stats["rule_counts"][finding.rule_id] = (
-                stats["rule_counts"].get(finding.rule_id, 0) + 1
-            )
+            stats["rule_counts"][finding.rule_id] = stats["rule_counts"].get(finding.rule_id, 0) + 1
             if finding.can_fix:
                 stats["fixable_findings"] += 1
 
