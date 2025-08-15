@@ -12,7 +12,6 @@ on:
       - '**.md'
       - 'docs/**'
 
-# Define default permissions as restrictive as possible
 permissions:
   contents: read
 
