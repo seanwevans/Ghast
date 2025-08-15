@@ -10,10 +10,7 @@ readme = "README.md"
 authors = [
     {name = "Sean Evans", email = "sean.w.evans@gmail.com"}
 ]
-# Use an SPDX identifier for the license to avoid setuptools warnings during
-# builds and explicitly include the license file in the distribution.
 license = {text = "MIT"}
-license-files = ["LICENSE"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
