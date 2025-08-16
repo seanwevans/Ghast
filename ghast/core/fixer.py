@@ -38,12 +38,8 @@ class SafeDumper(yaml.SafeDumper):
     pass
 
 
-def construct_mapping(
-    self: "SafeLoader", node: MappingNode, deep: bool = False
-) -> Dict[str, Any]:
-    mapping = cast(
-        Dict[str, Any], super(SafeLoader, self).construct_mapping(node, deep=deep)
-    )
+def construct_mapping(self: "SafeLoader", node: MappingNode, deep: bool = False) -> Dict[str, Any]:
+    mapping = cast(Dict[str, Any], super(SafeLoader, self).construct_mapping(node, deep=deep))
     mapping["__line__"] = node.start_mark.line
     mapping["__column__"] = node.start_mark.column
     return mapping
