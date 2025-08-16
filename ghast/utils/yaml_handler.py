@@ -5,10 +5,10 @@ This module provides enhanced YAML handling capabilities for ghast,
 including position-aware parsing and formatting preservation.
 """
 
-import yaml
-import re
-from typing import Dict, Any, List, Tuple, Optional, TextIO
 from pathlib import Path
+from typing import Any, Dict, List, Optional, TextIO, cast
+
+import yaml  # type: ignore[import-untyped]
 
 
 class LineColumnLoader(yaml.SafeLoader):
@@ -16,19 +16,19 @@ class LineColumnLoader(yaml.SafeLoader):
     Custom YAML loader that tracks line and column information
     """
 
-    def __init__(self, stream):
+    def __init__(self, stream: Any) -> None:
         super().__init__(stream)
 
-    def compose_node(self, parent, index):
+    def compose_node(self, parent: Any, index: Any) -> Any:
         """Add line/column information to nodes"""
         node = super().compose_node(parent, index)
         node.__line__ = self.line + 1
         node.__column__ = self.column
         return node
 
-    def construct_mapping(self, node, deep=False):
+    def construct_mapping(self, node: Any, deep: bool = False) -> Dict[str, Any]:
         """Add line/column information to dictionaries"""
-        mapping = super().construct_mapping(node, deep=deep)
+        mapping = cast(Dict[str, Any], super().construct_mapping(node, deep=deep))
         mapping["__line__"] = getattr(node, "__line__", None)
         mapping["__column__"] = getattr(node, "__column__", None)
         return mapping
@@ -59,7 +59,7 @@ class FormattingPreservingDumper(yaml.SafeDumper):
     Custom YAML dumper that tries to preserve formatting
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
 
@@ -76,7 +76,7 @@ def load_yaml_with_positions(content: str) -> Dict[str, Any]:
     Raises:
         yaml.YAMLError: If YAML parsing fails
     """
-    return yaml.load(content, Loader=LineColumnLoader)
+    return cast(Dict[str, Any], yaml.load(content, Loader=LineColumnLoader))
 
 
 def load_yaml_file_with_positions(file_path: str) -> Dict[str, Any]:
@@ -108,7 +108,6 @@ def clean_positions(obj: Any) -> Any:
         Cleaned object without position information
     """
     if isinstance(obj, dict):
-
         return {
             k: clean_positions(v) for k, v in obj.items() if k != "__line__" and k != "__column__"
         }
@@ -117,7 +116,7 @@ def clean_positions(obj: Any) -> Any:
     return obj
 
 
-def dump_yaml(obj: Any, stream=None, **kwargs) -> Optional[str]:
+def dump_yaml(obj: Any, stream: Optional[TextIO] = None, **kwargs: Any) -> Optional[str]:
     """
     Dump YAML object with formatting preservation
 
@@ -135,7 +134,10 @@ def dump_yaml(obj: Any, stream=None, **kwargs) -> Optional[str]:
     kwargs.setdefault("sort_keys", False)
     kwargs.setdefault("default_flow_style", False)
 
-    return yaml.dump(cleaned_obj, stream, Dumper=FormattingPreservingDumper, **kwargs)
+    return cast(
+        Optional[str],
+        yaml.dump(cleaned_obj, stream, Dumper=FormattingPreservingDumper, **kwargs),
+    )
 
 
 def find_yaml_files(directory: str, recursive: bool = True) -> List[Path]:

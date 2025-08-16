@@ -13,11 +13,11 @@ repos:
     rev: 6.1.0
     hooks:
       - id: flake8
+        args: ["--max-line-length=100"]
   - repo: local
     hooks:
       - id: pytest
         name: pytest
         entry: pytest
-        language: python
-        additional_dependencies: ["pytest>=7.0.0"]
+        language: system
         pass_filenames: false

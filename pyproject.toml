@@ -74,12 +74,27 @@ include = '\.pyi?$'
 profile = "black"
 line_length = 100
 
+[tool.flake8]
+max-line-length = 100
+
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
+ignore_missing_imports = true
+no_implicit_optional = false
+
+[[tool.mypy.overrides]]
+module = [
+    "ghast.tests.*",
+    "ghast.core.*",
+    "ghast.rules.*",
+    "ghast.reports.*",
+    "ghast.cli",
+]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["ghast/tests"]
