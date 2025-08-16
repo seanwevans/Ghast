@@ -6,8 +6,7 @@ This module handles loading, validating, and managing configuration for the ghas
 
 import os
 import yaml
-from typing import Dict, Any, Optional, List
-from pathlib import Path
+from typing import Any, Dict, Optional, List, cast
 
 DEFAULT_CONFIG = {
     "check_timeout": True,
@@ -282,7 +281,9 @@ def generate_default_config(output_path: Optional[str] = None) -> str:
     Raises:
         ConfigurationError: If configuration cannot be saved
     """
-    default_config_yaml = yaml.dump(DEFAULT_CONFIG, default_flow_style=False, sort_keys=False)
+    default_config_yaml = cast(
+        str, yaml.dump(DEFAULT_CONFIG, default_flow_style=False, sort_keys=False)
+    )
 
     if output_path:
         try:
