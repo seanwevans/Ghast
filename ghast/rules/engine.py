@@ -4,36 +4,32 @@ engine.py - Rule engine for ghast
 This module provides the core rule engine that manages and runs security rules.
 """
 
-import os
-import yaml
-from typing import List, Dict, Any, Set, Optional, Type
+from typing import Any, Dict, List, Optional
 
 from ..core import Finding
 from .base import Rule
+from .best_practices import (
+    ContinueOnErrorRule,
+    DeprecatedActionsRule,
+    ReusableWorkflowRule,
+    ShellSpecificationRule,
+    TimeoutRule,
+    WorkflowNameRule,
+)
 from .security import (
-    PermissionsRule,
-    PoisonedPipelineExecutionRule,
+    ActionPinningRule,
     CommandInjectionRule,
     EnvironmentInjectionRule,
+    PermissionsRule,
+    PoisonedPipelineExecutionRule,
     TokenSecurityRule,
-    ActionPinningRule,
-)
-from .best_practices import (
-    TimeoutRule,
-    ShellSpecificationRule,
-    WorkflowNameRule,
-    DeprecatedActionsRule,
-    ContinueOnErrorRule,
-    ReusableWorkflowRule,
 )
 
 
 class RuleEngine:
-    """
-    Engine for managing and running GitHub Actions security rules
-    """
+    """Engine for managing and running GitHub Actions security rules"""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None, strict: bool = False):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, strict: bool = False) -> None:
         """
         Initialize the rule engine
 
@@ -43,13 +39,13 @@ class RuleEngine:
         """
         self.config = config or {}
         self.strict = strict
-        self.rules = []
+        self.rules: List[Rule] = []
 
         self._register_default_rules()
 
         self._apply_config()
 
-    def _register_default_rules(self):
+    def _register_default_rules(self) -> None:
         """Register the default set of rules"""
 
         self.rules.append(PermissionsRule())
@@ -66,7 +62,7 @@ class RuleEngine:
         self.rules.append(ContinueOnErrorRule())
         self.rules.append(ReusableWorkflowRule())
 
-    def _apply_config(self):
+    def _apply_config(self) -> None:
         """Apply configuration to rules"""
         if not self.config:
             return
@@ -96,7 +92,7 @@ class RuleEngine:
             elif short_with_check in severity_thresholds:
                 rule.severity = severity_thresholds[short_with_check]
 
-    def register_rule(self, rule: Rule):
+    def register_rule(self, rule: Rule) -> None:
         """
         Register a custom rule
 
@@ -205,7 +201,6 @@ class RuleEngine:
                 rule_findings = rule.check(workflow, file_path)
                 findings.extend(rule_findings)
             except Exception as e:
-
                 findings.append(
                     Finding(
                         rule_id=f"rule_error.{rule.rule_id}",

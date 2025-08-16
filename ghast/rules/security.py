@@ -4,17 +4,17 @@ security.py - Security-focused rules for GitHub Actions
 This module provides rules focused on security issues in GitHub Actions workflows.
 """
 
-from typing import List, Dict, Any, Set
 import re
+from typing import Any, Dict, List
 
-from .base import Rule, WorkflowRule, JobRule, StepRule, TriggerRule, TokenRule
 from ..core import Finding
+from .base import Rule, StepRule, TokenRule, WorkflowRule
 
 
 class PermissionsRule(WorkflowRule):
     """Rule for checking workflow permissions"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             rule_id="permissions",
             severity="HIGH",
@@ -111,7 +111,7 @@ class PermissionsRule(WorkflowRule):
 class PoisonedPipelineExecutionRule(Rule):
     """Rule for detecting Poisoned Pipeline Execution (PPE) vulnerabilities"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             rule_id="poisoned_pipeline_execution",
             severity="CRITICAL",
@@ -218,7 +218,7 @@ class PoisonedPipelineExecutionRule(Rule):
 class CommandInjectionRule(StepRule):
     """Rule for detecting potential command injection vulnerabilities"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             rule_id="command_injection",
             severity="HIGH",
@@ -281,7 +281,7 @@ class CommandInjectionRule(StepRule):
 class EnvironmentInjectionRule(StepRule):
     """Rule for detecting unsafe modifications to GITHUB_ENV and GITHUB_PATH"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             rule_id="environment_injection",
             severity="HIGH",
@@ -338,7 +338,10 @@ class EnvironmentInjectionRule(StepRule):
                         ):
                             findings.append(
                                 self.create_finding(
-                                    message=f"Modification of GITHUB_PATH after checkout in job '{job_id}' step {step_idx+1}",
+                                    message=(
+                                        f"Modification of GITHUB_PATH after checkout in job '{job_id}' "
+                                        f"step {step_idx+1}"
+                                    ),
                                     file_path=file_path,
                                 )
                             )
@@ -349,12 +352,15 @@ class EnvironmentInjectionRule(StepRule):
 class TokenSecurityRule(TokenRule):
     """Rule for checking token and secret usage"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             rule_id="token_security",
             severity="HIGH",
             description="Detects hardcoded tokens and insecure secret handling in workflows",
-            remediation="Store secrets in GitHub Secrets and reference them with ${{ secrets.SECRET_NAME }}",
+            remediation=(
+                "Store secrets in GitHub Secrets and reference them "
+                "with ${{ secrets.SECRET_NAME }}"
+            ),
             category="security",
         )
 
@@ -378,9 +384,14 @@ class TokenSecurityRule(TokenRule):
                     ):
                         findings.append(
                             self.create_finding(
-                                message=f"actions/checkout in job '{job_id}' step {step_idx+1} does not disable credential persistence",
+                                message=(
+                                    f"actions/checkout in job '{job_id}' step {step_idx+1} "
+                                    "does not disable credential persistence"
+                                ),
                                 file_path=file_path,
-                                remediation="Add 'persist-credentials: false' to the 'with' section of actions/checkout steps",
+                                remediation=(
+                                    "Add 'persist-credentials: false' to the 'with' section of actions/checkout steps"
+                                ),
                                 can_fix=True,
                             )
                         )
@@ -417,7 +428,7 @@ class TokenSecurityRule(TokenRule):
 class ActionPinningRule(StepRule):
     """Rule for checking action pinning"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             rule_id="action_pinning",
             severity="MEDIUM",
