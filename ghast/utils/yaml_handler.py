@@ -225,9 +225,7 @@ def extract_line_from_file(file_path: str, line_number: int, context: int = 2) -
         return []
 
 
-def get_element_at_path(
-    yaml_content: Any, path: Sequence[Union[str, int]]
-) -> Any:
+def get_element_at_path(yaml_content: Any, path: Sequence[Union[str, int]]) -> Any:
     """
     Get element at a specific path in a YAML object
 
