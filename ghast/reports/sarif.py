@@ -13,7 +13,7 @@ import hashlib
 import json
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from ..core import Finding
 from ..utils.version import __version__
@@ -102,7 +102,7 @@ def finding_to_sarif_result(finding: Finding, repo_root: Optional[str] = None) -
     if repo_root and file_path.startswith(repo_root):
         file_path = os.path.relpath(file_path, repo_root)
 
-    result = {
+    result: Dict[str, Any] = {
         "ruleId": finding.rule_id,
         "level": severity_to_sarif_level(finding.severity),
         "message": {"text": finding.message},
@@ -110,20 +110,22 @@ def finding_to_sarif_result(finding: Finding, repo_root: Optional[str] = None) -
     }
 
     if finding.line_number is not None:
-        result["locations"][0]["physicalLocation"]["region"] = {"startLine": finding.line_number}
+        locations = cast(List[Dict[str, Any]], result["locations"])
+        physical_loc = cast(Dict[str, Any], locations[0]["physicalLocation"])
+        physical_loc["region"] = {"startLine": finding.line_number}
 
         if finding.column is not None:
-            result["locations"][0]["physicalLocation"]["region"]["startColumn"] = finding.column
+            region = cast(Dict[str, Any], physical_loc["region"])
+            region["startColumn"] = finding.column
 
     if finding.remediation:
         result["fixes"] = [{"description": {"text": finding.remediation}}]
 
-    result["properties"] = {
-        "severity": finding.severity,
-    }
+    result["properties"] = {"severity": finding.severity}
 
     if finding.context:
-        result["properties"]["context"] = finding.context
+        properties = cast(Dict[str, Any], result["properties"])
+        properties["context"] = finding.context
 
     return result
 
@@ -259,7 +261,7 @@ def generate_sarif_suppression_file(findings: List[Finding], output_path: str) -
         )
         finding_hash = hashlib.md5(hash_input.encode("utf-8")).hexdigest()
 
-        suppression = {
+        suppression: Dict[str, Any] = {
             "guid": finding_hash,
             "kind": "inSource",
             "justification": "Known issue, suppressed",
@@ -271,9 +273,9 @@ def generate_sarif_suppression_file(findings: List[Finding], output_path: str) -
         }
 
         if finding.line_number is not None:
-            suppression["location"]["physicalLocation"]["region"] = {
-                "startLine": finding.line_number
-            }
+            location = cast(Dict[str, Any], suppression["location"])
+            physical_loc = cast(Dict[str, Any], location["physicalLocation"])
+            physical_loc["region"] = {"startLine": finding.line_number}
 
         suppressions.append(suppression)
 

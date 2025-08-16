@@ -60,7 +60,7 @@ def generate_json_report(
 
     findings_data: List[Dict[str, Any]] = [finding_to_dict(finding) for finding in findings]
 
-    report = {
+    report: Dict[str, Any] = {
         "ghast_version": __version__,
         "generated_at": datetime.now().isoformat(),
         "findings": findings_data,
