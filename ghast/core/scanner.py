@@ -5,13 +5,13 @@ This module handles the main scanning logic for GitHub Actions workflow files,
 discovering security issues and providing findings.
 """
 
-import os
 import re
-import yaml
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Dict, List, Any, Optional, Set, Tuple
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+import yaml
 
 SEVERITY_LEVELS = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
@@ -30,18 +30,16 @@ class Finding:
     context: Dict[str, Any] = field(default_factory=dict)
     can_fix: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate severity level"""
         if self.severity not in SEVERITY_LEVELS:
             raise ValueError(f"Invalid severity level: {self.severity}")
 
 
 class WorkflowScanner:
-    """
-    Scans GitHub Actions workflow files for security issues
-    """
+    """Scans GitHub Actions workflow files for security issues"""
 
-    def __init__(self, strict=False, config=None):
+    def __init__(self, strict: bool = False, config: Optional[Dict[str, Any]] = None) -> None:
         """
         Initialize the scanner
 
@@ -54,7 +52,14 @@ class WorkflowScanner:
         self.rule_registry = {}
         self.register_default_rules()
 
-    def register_rule(self, rule_id, rule_func, severity="MEDIUM", enabled=True, description=None):
+    def register_rule(
+        self,
+        rule_id: str,
+        rule_func: Callable[[Dict[str, Any], str], List[Finding]],
+        severity: str = "MEDIUM",
+        enabled: bool = True,
+        description: Optional[str] = None,
+    ) -> None:
         """
         Register a rule for scanning
 
@@ -80,7 +85,7 @@ class WorkflowScanner:
             "description": description,
         }
 
-    def register_default_rules(self):
+    def register_default_rules(self) -> None:
         """Register the built-in rules"""
         self.register_rule(
             "check_timeout",
@@ -300,7 +305,7 @@ class WorkflowScanner:
                                 severity="LOW",
                                 message=f"Multiline script in job '{job_id}' step {step_idx+1} has no shell specified",
                                 file_path=file_path,
-                                remediation=f"Add 'shell: bash' to this step",
+                                remediation="Add 'shell: bash' to this step",
                                 can_fix=True,
                             )
                         )
@@ -368,7 +373,6 @@ class WorkflowScanner:
                     )
                 )
             elif isinstance(runs_on, list) and "self-hosted" in runs_on:
-
                 findings.append(
                     Finding(
                         rule_id="check_runs_on",
@@ -393,7 +397,7 @@ class WorkflowScanner:
                     severity="LOW",
                     message="Missing workflow name (top-level 'name' field)",
                     file_path=file_path,
-                    remediation=f"Add a 'name:' field at the top level of the workflow",
+                    remediation="Add a 'name:' field at the top level of the workflow",
                     can_fix=True,
                 )
             )
@@ -465,7 +469,6 @@ class WorkflowScanner:
         for pattern, desc in token_patterns:
             matches = re.finditer(pattern, workflow_str, re.IGNORECASE)
             for match in matches:
-
                 context_before = workflow_str[max(0, match.start() - 30) : match.start()]
                 if (
                     "secrets." in context_before
@@ -506,7 +509,6 @@ class WorkflowScanner:
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
             if job.get("uses") and "with" in job:
-
                 if not job.get("inputs"):
                     findings.append(
                         Finding(
@@ -537,7 +539,6 @@ class WorkflowScanner:
         high_risk_triggers_used = triggers.intersection(high_risk_triggers)
 
         if not high_risk_triggers_used:
-
             return findings
 
         jobs = workflow.get("jobs", {})
@@ -652,7 +653,6 @@ class WorkflowScanner:
                             )
 
                     if "${{ env." in run_command:
-
                         if self.strict:
                             findings.append(
                                 Finding(

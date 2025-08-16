@@ -1,0 +1,8 @@
+[flake8]
+max-line-length = 100
+extend-ignore = E203
+per-file-ignores =
+    ghast/rules/security.py:E501
+    ghast/core/scanner.py:E501
+    ghast/rules/best_practices.py:E501
+    ghast/rules/engine.py:E501

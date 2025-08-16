@@ -5,17 +5,17 @@ This module provides rules focused on best practices rather than strict security
 """
 
 import os
-from typing import List, Dict, Any, Set, Optional
 import re
+from typing import Any, Dict, List
 
-from .base import Rule, WorkflowRule, JobRule, StepRule
 from ..core import Finding
+from .base import JobRule, Rule, StepRule, WorkflowRule
 
 
 class TimeoutRule(JobRule):
     """Rule for checking job timeouts"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             rule_id="timeout",
             severity="LOW",
@@ -54,7 +54,7 @@ class TimeoutRule(JobRule):
 class ShellSpecificationRule(StepRule):
     """Rule for checking shell specification in multiline scripts"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             rule_id="shell_specification",
             severity="LOW",
@@ -111,7 +111,7 @@ class ShellSpecificationRule(StepRule):
 class WorkflowNameRule(WorkflowRule):
     """Rule for checking workflow name"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             rule_id="workflow_name",
             severity="LOW",
@@ -128,7 +128,6 @@ class WorkflowNameRule(WorkflowRule):
     def fix(self, workflow: Dict[str, Any], finding: Finding) -> bool:
         """Fix missing workflow name"""
         if "name" not in workflow:
-
             file_name = finding.file_path.split("/")[-1]
 
             workflow_name = (
@@ -151,7 +150,7 @@ class WorkflowNameRule(WorkflowRule):
 class DeprecatedActionsRule(StepRule):
     """Rule for checking deprecated actions"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             rule_id="deprecated_actions",
             severity="MEDIUM",
@@ -222,7 +221,6 @@ class DeprecatedActionsRule(StepRule):
                     step = steps[step_idx]
 
                     if "uses" in step and step["uses"] == deprecated_action:
-
                         replacement = finding.context.get("replacement")
 
                         if not replacement:
@@ -241,7 +239,7 @@ class DeprecatedActionsRule(StepRule):
 class ContinueOnErrorRule(Rule):
     """Rule for checking continue-on-error usage"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             rule_id="continue_on_error",
             severity="MEDIUM",
@@ -283,7 +281,7 @@ class ContinueOnErrorRule(Rule):
 class ReusableWorkflowRule(Rule):
     """Rule for checking reusable workflow inputs"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             rule_id="reusable_workflow_inputs",
             severity="MEDIUM",
@@ -299,7 +297,6 @@ class ReusableWorkflowRule(Rule):
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
             if job.get("uses") and "with" in job:
-
                 if not job.get("inputs"):
                     findings.append(
                         self.create_finding(

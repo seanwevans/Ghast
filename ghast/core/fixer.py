@@ -6,12 +6,13 @@ in GitHub Actions workflows.
 """
 
 import os
-import yaml
 import re
-import tempfile
 import shutil
-from typing import Dict, Any, List, Tuple, Optional, Callable
+from typing import Any, Dict, List, Tuple
+
 import click
+import yaml
+from yaml.nodes import Node
 
 from .scanner import Finding
 
@@ -19,10 +20,10 @@ from .scanner import Finding
 class SafeLoader(yaml.SafeLoader):
     """Custom YAML loader that preserves line numbers"""
 
-    def __init__(self, stream):
+    def __init__(self, stream: Any) -> None:
         super(SafeLoader, self).__init__(stream)
 
-    def compose_node(self, parent, index):
+    def compose_node(self, parent: Any, index: Any) -> Node:
         """Override to add line information"""
         node = super(SafeLoader, self).compose_node(parent, index)
         node.start_mark.line = self.line
@@ -36,7 +37,7 @@ class SafeDumper(yaml.SafeDumper):
     pass
 
 
-def construct_mapping(self, node, deep=False):
+def construct_mapping(self, node: Node, deep: bool = False) -> Dict[str, Any]:
     mapping = super(SafeLoader, self).construct_mapping(node, deep=deep)
     mapping["__line__"] = node.start_mark.line
     mapping["__column__"] = node.start_mark.column
@@ -49,7 +50,7 @@ SafeLoader.add_constructor(yaml.resolver.Resolver.DEFAULT_MAPPING_TAG, construct
 class Fixer:
     """Class for fixing GitHub Actions workflow issues"""
 
-    def __init__(self, config: Dict[str, Any], interactive: bool = False):
+    def __init__(self, config: Dict[str, Any], interactive: bool = False) -> None:
         """
         Initialize the fixer
 
@@ -105,7 +106,6 @@ class Fixer:
 
         try:
             for rule_id, rule_findings in findings_by_rule.items():
-
                 if not self.config.get("auto_fix", {}).get("rules", {}).get(rule_id, True):
                     self.fixes_skipped += len(rule_findings)
                     continue
@@ -118,7 +118,9 @@ class Fixer:
                 for finding in rule_findings:
                     if self.interactive:
                         if not click.confirm(
-                            f"\nFix {finding.rule_id} issue in {file_path}?\n{finding.message}\nProposed fix: {finding.remediation}",
+                            f"\nFix {finding.rule_id} issue in {file_path}?\n"
+                            f"{finding.message}\n"
+                            f"Proposed fix: {finding.remediation}",
                             default=True,
                         ):
                             self.fixes_skipped += 1
@@ -151,7 +153,6 @@ class Fixer:
                 os.remove(backup_path)
 
         except Exception as e:
-
             click.echo(f"Error fixing {file_path}: {e}", err=True)
             shutil.copy2(backup_path, file_path)
             os.remove(backup_path)
@@ -159,10 +160,9 @@ class Fixer:
 
         return self.fixes_applied, self.fixes_skipped
 
-    def _clean_workflow(self, obj):
+    def _clean_workflow(self, obj: Any) -> None:
         """Remove line/column metadata from workflow objects before dumping."""
         if isinstance(obj, dict):
-
             if "__line__" in obj:
                 del obj["__line__"]
             if "__column__" in obj:
