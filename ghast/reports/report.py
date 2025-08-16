@@ -6,11 +6,9 @@ This module provides a unified interface for generating reports in different for
 
 import os
 import sys
-from typing import List, Dict, Any, Optional
-import io
+from typing import Any, Dict, List, Optional
 
 from ..core import Finding
-
 from .console import format_console_report, print_console_report
 from .json import generate_json_report, generate_json_summary
 from .sarif import generate_sarif_report
@@ -20,7 +18,7 @@ def generate_report(
     findings: List[Finding],
     stats: Dict[str, Any],
     format: str = "text",
-    repo_path: str = None,
+    repo_path: Optional[str] = None,
     verbose: bool = False,
     group_by_severity: bool = False,
     show_remediation: bool = True,
@@ -76,7 +74,7 @@ def save_report(
     stats: Dict[str, Any],
     output_path: str,
     format: str = "text",
-    repo_path: str = None,
+    repo_path: Optional[str] = None,
     verbose: bool = False,
     group_by_severity: bool = False,
     show_remediation: bool = True,
@@ -125,7 +123,7 @@ def print_report(
     findings: List[Finding],
     stats: Dict[str, Any],
     format: str = "text",
-    repo_path: str = None,
+    repo_path: Optional[str] = None,
     verbose: bool = False,
     group_by_severity: bool = False,
     show_remediation: bool = True,
@@ -161,7 +159,6 @@ def print_report(
             output_stream=sys.stdout,
         )
     else:
-
         report = generate_report(
             findings,
             stats,
@@ -177,7 +174,7 @@ def print_report(
 
 
 def generate_html_report(
-    findings: List[Finding], stats: Dict[str, Any], repo_path: str = None
+    findings: List[Finding], stats: Dict[str, Any], repo_path: Optional[str] = None
 ) -> str:
     """
     Generate an HTML report (placeholder for future implementation)
@@ -203,7 +200,8 @@ def generate_html_report(
     <title>ghast Security Report</title>
     <style>
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+            Roboto, Helvetica, Arial, sans-serif;
             line-height: 1.6;
             color: #333;
             max-width: 1200px;
@@ -270,7 +268,7 @@ def generate_html_report(
 </head>
 <body>
     <h1>ghast GitHub Actions Security Report</h1>
-    
+
     <h2>Summary</h2>
     <table class="summary-table">
         <tr>
@@ -298,7 +296,7 @@ def generate_html_report(
             <td>{stats.get('severity_counts', {}).get('LOW', 0)}</td>
         </tr>
     </table>
-    
+
     <h2>Findings</h2>
     <pre>{text_report.replace('<', '&lt;').replace('>', '&gt;')}</pre>
 </body>

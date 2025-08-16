@@ -6,11 +6,10 @@ including color coding, indentation, and summary statistics.
 """
 
 import os
-import re
-from typing import List, Dict, Any, Optional, TextIO, Union
-import sys
-import shutil
 import platform
+import shutil
+import sys
+from typing import List, Optional, TextIO
 
 COLORS = {
     "reset": "\033[0m",
@@ -71,7 +70,6 @@ def supports_color() -> bool:
 
     plat = platform.system()
     if plat == "Windows":
-
         return (
             os.environ.get("ANSICON") is not None
             or os.environ.get("WT_SESSION") is not None
@@ -79,7 +77,6 @@ def supports_color() -> bool:
             or os.environ.get("TERM_PROGRAM") is not None
         )
     else:
-
         return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
 
@@ -190,15 +187,12 @@ def format_header(text: str, level: int = 1) -> str:
     width = get_console_width()
 
     if level == 1:
-
         styled_text = colorize(text.upper(), "bold")
         return f"\n{styled_text}\n{'=' * min(len(text) + 4, width)}"
     elif level == 2:
-
         styled_text = colorize(text, "bold")
         return f"\n{styled_text}\n{'-' * min(len(text) + 4, width)}"
     else:
-
         return f"\n{colorize(text, 'bold')}"
 
 
@@ -406,7 +400,7 @@ def wrap_text(text: str, width: Optional[int] = None) -> str:
             continue
 
         words = paragraph.split()
-        current_line = []
+        current_line: List[str] = []
         current_length = 0
 
         for word in words:

@@ -57,7 +57,7 @@ if "main" not in globals():
         """Main entry point for the ghast CLI tool"""
         from .cli import cli
 
-        return cli()
+        cli()
 
 
 if __name__ == "__main__" or "unittest.mock" in type(main).__module__:

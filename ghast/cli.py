@@ -5,24 +5,25 @@ This module provides the command-line interface for the ghast tool,
 allowing users to scan GitHub Actions workflows for security issues.
 """
 
+import json
 import os
 import sys
-import json
 from pathlib import Path
+from typing import Optional, Tuple
+
 import click
 
-from .utils.version import __version__
-from .utils.banner import _BANNER
 from .core import (
-    load_config,
-    generate_default_config,
-    save_config,
-    scan_repository,
-    fix_repository,
     WorkflowScanner,
+    fix_repository,
+    generate_default_config,
+    load_config,
+    scan_repository,
 )
-from .reports import generate_report, save_report, print_report, generate_full_report
-from .rules import create_rule_engine, RuleEngine
+from .reports import generate_full_report, print_report, save_report
+from .rules import create_rule_engine
+from .utils.banner import _BANNER
+from .utils.version import __version__
 
 OUTPUT_FORMATS = ["text", "json", "sarif", "html"]
 
@@ -30,7 +31,7 @@ OUTPUT_FORMATS = ["text", "json", "sarif", "html"]
 @click.group(invoke_without_command=True)
 @click.version_option(version=__version__)
 @click.pass_context
-def cli(ctx):
+def cli(ctx: click.Context) -> None:
     """ghast ☠ GitHub Actions Security Tool
 
     A security scanner for GitHub Actions workflows.
@@ -66,16 +67,16 @@ def cli(ctx):
 @click.option("--no-color", is_flag=True, help="Disable colored output")
 @click.option("--verbose", is_flag=True, help="Show detailed information for each finding")
 def scan(
-    repo_path,
-    strict,
-    config,
-    disable,
-    output,
-    output_file,
-    severity_threshold,
-    no_color,
-    verbose,
-):
+    repo_path: str,
+    strict: bool,
+    config: Optional[str],
+    disable: Tuple[str, ...],
+    output: str,
+    output_file: Optional[str],
+    severity_threshold: str,
+    no_color: bool,
+    verbose: bool,
+) -> None:
     """Audit GitHub Actions workflows for security issues (read-only)
 
     REPO_PATH: Path to the repository root or specific workflow file
@@ -185,7 +186,15 @@ def scan(
     default="LOW",
     help="Minimum severity level to fix",
 )
-def fix(repo_path, strict, config, disable, interactive, dry_run, severity_threshold):
+def fix(
+    repo_path: str,
+    strict: bool,
+    config: Optional[str],
+    disable: Tuple[str, ...],
+    interactive: bool,
+    dry_run: bool,
+    severity_threshold: str,
+) -> None:
     """Audit and apply safe fixes to GitHub Actions workflows
 
     REPO_PATH: Path to the repository root or specific workflow file
@@ -263,7 +272,6 @@ def fix(repo_path, strict, config, disable, interactive, dry_run, severity_thres
         stats["fixes_applied"] = fixes_applied
         stats["fixes_skipped"] = fixes_skipped
     else:
-
         fixable_count = sum(1 for finding in findings if finding.can_fix)
         stats["fixes_applied"] = 0
         stats["fixes_skipped"] = 0
@@ -297,7 +305,7 @@ def fix(repo_path, strict, config, disable, interactive, dry_run, severity_thres
 @click.option("--config", type=click.Path(exists=True), help="Path to YAML config file to validate")
 @click.option("--generate", is_flag=True, help="Generate a default config file")
 @click.option("--output", type=click.Path(), help="Output path for generated config")
-def config(config, generate, output):
+def config(config: Optional[str], generate: bool, output: Optional[str]) -> None:
     """View or validate current config"""
     if generate:
         config_str = generate_default_config(output_path=output)
@@ -315,7 +323,9 @@ def config(config, generate, output):
         rule_engine = create_rule_engine(config_data)
         for rule_info in rule_engine.list_rules():
             click.echo(
-                f" - {rule_info['id']}: {'enabled' if rule_info['enabled'] else 'disabled'} [{rule_info['severity']}]"
+                f" - {rule_info['id']}: "
+                f"{'enabled' if rule_info['enabled'] else 'disabled'} "
+                f"[{rule_info['severity']}]"
             )
     except Exception as e:
         click.echo(f"❌ Config validation failed: {e}", err=True)
@@ -329,14 +339,13 @@ def config(config, generate, output):
     default="table",
     help="Output format",
 )
-def rules(format):
+def rules(format: str) -> None:
     """List all available rules and what they do"""
 
     rule_engine = create_rule_engine()
     rules_list = rule_engine.list_rules()
 
     if format == "json":
-
         click.echo(json.dumps(rules_list, indent=2))
     else:
         click.echo("🔍 ghast supports the following rules:")
@@ -352,7 +361,6 @@ def rules(format):
             click.echo(f"\n{category.upper()}:")
 
             for rule in sorted(category_rules, key=lambda r: r["id"]):
-
                 severity_colors = {
                     "LOW": "blue",
                     "MEDIUM": "yellow",
@@ -371,12 +379,11 @@ def rules(format):
 
 @cli.command()
 @click.argument("file_path", type=click.Path(exists=True))
-def analyze(file_path):
+def analyze(file_path: str) -> None:
     """Analyze a single workflow file with detailed explanation"""
-    from .utils.yaml_handler import load_yaml_file_with_positions, is_github_actions_workflow
+    from .utils.yaml_handler import is_github_actions_workflow, load_yaml_file_with_positions
 
     try:
-
         workflow = load_yaml_file_with_positions(file_path)
 
         if not is_github_actions_workflow(workflow):
@@ -425,11 +432,11 @@ def analyze(file_path):
     default="html",
     help="Report format",
 )
-def report(repo_path, output, format):
+def report(repo_path: str, output: str, format: str) -> None:
     """Generate a comprehensive security report"""
     click.echo(f"Analyzing repository: {repo_path}")
 
-    report_data = generate_full_report(
+    generate_full_report(
         repo_path=repo_path, output_format=format, output_path=output, verbose=True
     )
 

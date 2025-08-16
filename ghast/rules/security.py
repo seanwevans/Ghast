@@ -130,7 +130,7 @@ class PoisonedPipelineExecutionRule(Rule):
 
     def check(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for PPE vulnerabilities"""
-        findings = []
+        findings: List[Finding] = []
 
         on_section = workflow.get("on", {})
         triggers = set()

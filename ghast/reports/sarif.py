@@ -5,19 +5,18 @@ This module provides functionality for formatting scanning results in SARIF
 (Static Analysis Results Interchange Format) format, suitable for GitHub
 integration and other static analysis tools.
 
-See https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/sarif-support-for-code-scanning
-for more information on GitHub's SARIF support.
+See https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/
+sarif-support-for-code-scanning for more information on GitHub's SARIF support.
 """
 
+import hashlib
 import json
 import os
-from typing import List, Dict, Any, Set
 from datetime import datetime
-import hashlib
+from typing import Any, Dict, List, Optional
 
+from ..core import Finding
 from ..utils.version import __version__
-
-from ..core import Finding, SEVERITY_LEVELS
 
 SARIF_VERSION = "2.1.0"
 SARIF_SCHEMA = (
@@ -55,7 +54,10 @@ def severity_to_sarif_level(severity: str) -> str:
 
 
 def rule_to_sarif_rule(
-    rule_id: str, severity: str, description: str = None, help_text: str = None
+    rule_id: str,
+    severity: str,
+    description: Optional[str] = None,
+    help_text: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Convert a ghast rule to a SARIF rule
@@ -84,7 +86,7 @@ def rule_to_sarif_rule(
     return sarif_rule
 
 
-def finding_to_sarif_result(finding: Finding, repo_root: str = None) -> Dict[str, Any]:
+def finding_to_sarif_result(finding: Finding, repo_root: Optional[str] = None) -> Dict[str, Any]:
     """
     Convert a ghast finding to a SARIF result
 
@@ -129,7 +131,7 @@ def finding_to_sarif_result(finding: Finding, repo_root: str = None) -> Dict[str
 def generate_sarif_report(
     findings: List[Finding],
     stats: Dict[str, Any],
-    repo_root: str = None,
+    repo_root: Optional[str] = None,
     tool_name: str = "ghast",
     tool_version: str = __version__,
 ) -> str:
@@ -147,7 +149,7 @@ def generate_sarif_report(
         SARIF report as a JSON string
     """
 
-    sarif = {
+    sarif: Dict[str, Any] = {
         "$schema": SARIF_SCHEMA,
         "version": SARIF_VERSION,
         "runs": [
@@ -183,10 +185,9 @@ def generate_sarif_report(
         if end_time:
             sarif["runs"][0]["invocations"][0]["endTimeUtc"] = end_time
 
-    rules_dict = {}
+    rules_dict: Dict[str, Dict[str, Any]] = {}
 
     for finding in findings:
-
         if finding.rule_id not in rules_dict:
             rule = rule_to_sarif_rule(
                 finding.rule_id,
@@ -207,7 +208,7 @@ def save_sarif_report(
     findings: List[Finding],
     stats: Dict[str, Any],
     output_path: str,
-    repo_root: str = None,
+    repo_root: Optional[str] = None,
     tool_name: str = "ghast",
     tool_version: str = __version__,
 ) -> None:
@@ -250,10 +251,9 @@ def generate_sarif_suppression_file(findings: List[Finding], output_path: str) -
     Raises:
         IOError: If the file cannot be written
     """
-    suppressions = []
+    suppressions: List[Dict[str, Any]] = []
 
     for finding in findings:
-
         hash_input = (
             f"{finding.rule_id}:{finding.file_path}:{finding.line_number or ''}:{finding.message}"
         )

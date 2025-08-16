@@ -233,7 +233,7 @@ class RuleEngine:
         fixes_applied = 0
         fixes_skipped = 0
 
-        findings_by_rule = {}
+        findings_by_rule: Dict[str, List[Finding]] = {}
         for finding in findings:
             if not finding.can_fix:
                 fixes_skipped += 1
