@@ -8,11 +8,12 @@ results in a human-readable format for terminal output.
 import os
 import sys
 from datetime import datetime
-from typing import List, Dict, Any, Optional, TextIO
+from typing import Any, Dict, List, Optional, TextIO
+
 import click
 
-from ..core import Finding, SEVERITY_LEVELS
-from ..utils.formatter import SEVERITY_COLORS
+from ..core import SEVERITY_LEVELS, Finding
+from ..utils.formatter import SEVERITY_COLORS  # noqa: F401
 
 # Mapping of severity levels to Click color names used for console output
 SEVERITY_COLOR_NAMES = {
@@ -88,7 +89,10 @@ def format_finding(finding: Finding, verbose: bool = False, show_remediation: bo
     severity = finding.severity
     symbol = get_severity_symbol(severity)
 
-    formatted = f"{symbol} {colorize(severity, SEVERITY_COLOR_NAMES.get(severity, 'reset'))}: {finding.message}\n"
+    formatted = (
+        f"{symbol} {colorize(severity, SEVERITY_COLOR_NAMES.get(severity, 'reset'))}: "
+        f"{finding.message}\n"
+    )
     formatted += f"  Rule: {finding.rule_id}\n"
 
     file_info = f"  File: {finding.file_path}"
@@ -124,7 +128,7 @@ def format_findings_by_file(
     if not findings:
         return "No issues found."
 
-    findings_by_file = {}
+    findings_by_file: Dict[str, List[Finding]] = {}
     for finding in findings:
         if finding.file_path not in findings_by_file:
             findings_by_file[finding.file_path] = []
@@ -134,7 +138,7 @@ def format_findings_by_file(
     for file_path, file_findings in findings_by_file.items():
         output += f"\n{colorize('File: ' + file_path, 'bold')}\n"
 
-        findings_by_severity = {}
+        findings_by_severity: Dict[str, List[Finding]] = {}
         for level in SEVERITY_LEVELS:
             findings_by_severity[level] = [f for f in file_findings if f.severity == level]
 
@@ -176,7 +180,14 @@ def format_findings_by_severity(
         if not level_findings:
             continue
 
-        output += f"\n{colorize(f'{level} Severity Issues ({len(level_findings)})', SEVERITY_COLOR_NAMES.get(level, 'reset'))}\n"
+        output += (
+            "\n"
+            + colorize(
+                f"{level} Severity Issues ({len(level_findings)})",
+                SEVERITY_COLOR_NAMES.get(level, "reset"),
+            )
+            + "\n"
+        )
         output += "=" * 50 + "\n"
 
         for finding in level_findings:

@@ -49,7 +49,7 @@ class WorkflowScanner:
         """
         self.strict = strict
         self.config = config or {}
-        self.rule_registry = {}
+        self.rule_registry: Dict[str, Dict[str, Any]] = {}
         self.register_default_rules()
 
     def register_rule(
@@ -182,7 +182,7 @@ class WorkflowScanner:
         Returns:
             List of findings
         """
-        findings = []
+        findings: List[Finding] = []
 
         try:
             with open(file_path, "r") as f:
@@ -242,7 +242,7 @@ class WorkflowScanner:
         Returns:
             List of findings
         """
-        findings = []
+        findings: List[Finding] = []
 
         workflow_dir = Path(directory_path) / ".github" / "workflows"
         if not workflow_dir.exists():
@@ -256,7 +256,7 @@ class WorkflowScanner:
 
     def check_timeout(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for missing timeout-minutes in long jobs"""
-        findings = []
+        findings: List[Finding] = []
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
@@ -291,7 +291,7 @@ class WorkflowScanner:
 
     def check_shell(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for multiline scripts without shell specified"""
-        findings = []
+        findings: List[Finding] = []
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
@@ -314,7 +314,7 @@ class WorkflowScanner:
 
     def check_deprecated(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for deprecated actions"""
-        findings = []
+        findings: List[Finding] = []
         deprecated_actions = [
             ("actions/checkout@v1", "Use actions/checkout@v3 or later"),
             ("actions/setup-python@v1", "Use actions/setup-python@v4 or later"),
@@ -344,7 +344,7 @@ class WorkflowScanner:
 
     def check_runs_on(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for self-hosted or ambiguous runners"""
-        findings = []
+        findings: List[Finding] = []
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
@@ -388,7 +388,7 @@ class WorkflowScanner:
 
     def check_workflow_name(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for missing workflow name"""
-        findings = []
+        findings: List[Finding] = []
 
         if "name" not in workflow:
             findings.append(
@@ -406,7 +406,7 @@ class WorkflowScanner:
 
     def check_continue_on_error(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for continue-on-error: true"""
-        findings = []
+        findings: List[Finding] = []
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
@@ -440,7 +440,7 @@ class WorkflowScanner:
 
     def check_tokens(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for hardcoded tokens"""
-        findings = []
+        findings: List[Finding] = []
 
         workflow_str = str(workflow)
 
@@ -504,7 +504,7 @@ class WorkflowScanner:
 
     def check_reusable_inputs(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for reusable workflows that don't properly define inputs"""
-        findings = []
+        findings: List[Finding] = []
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
@@ -525,7 +525,7 @@ class WorkflowScanner:
 
     def check_ppe_vulnerabilities(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for Poisoned Pipeline Execution vulnerabilities"""
-        findings = []
+        findings: List[Finding] = []
         high_risk_triggers = {"pull_request_target", "workflow_run"}
 
         on_section = workflow.get("on", {})
@@ -605,7 +605,7 @@ class WorkflowScanner:
 
     def check_command_injection(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for potential command injection vulnerabilities"""
-        findings = []
+        findings: List[Finding] = []
 
         # ``run_command`` contains only the script body, so the previous
         # implementation erroneously looked for the literal ``"run:"`` prefix
@@ -669,7 +669,7 @@ class WorkflowScanner:
 
     def check_env_injection(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for unsafe modifications to GITHUB_ENV and GITHUB_PATH"""
-        findings = []
+        findings: List[Finding] = []
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
@@ -731,7 +731,7 @@ class WorkflowScanner:
 def scan_repository(
     repo_path: str,
     strict: bool = False,
-    config: Dict[str, Any] = None,
+    config: Optional[Dict[str, Any]] = None,
     severity_threshold: str = "LOW",
 ) -> Tuple[List[Finding], Dict[str, Any]]:
     """
@@ -749,8 +749,8 @@ def scan_repository(
     scanner = WorkflowScanner(strict=strict, config=config)
 
     workflow_dir = Path(repo_path) / ".github" / "workflows"
-    all_findings = []
-    stats = {
+    all_findings: List[Finding] = []
+    stats: Dict[str, Any] = {
         "start_time": datetime.now().isoformat(),
         "repo_path": repo_path,
         "total_files": 0,

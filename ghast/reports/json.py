@@ -6,12 +6,11 @@ suitable for machine processing or integration with other tools.
 """
 
 import json
-from typing import List, Dict, Any, Optional
 from datetime import datetime
-
-from ..utils.version import __version__
+from typing import Any, Dict, List
 
 from ..core import Finding
+from ..utils.version import __version__
 
 
 def finding_to_dict(finding: Finding) -> Dict[str, Any]:
@@ -59,7 +58,7 @@ def generate_json_report(
         JSON string representation of the report
     """
 
-    findings_data = [finding_to_dict(finding) for finding in findings]
+    findings_data: List[Dict[str, Any]] = [finding_to_dict(finding) for finding in findings]
 
     report = {
         "ghast_version": __version__,
@@ -68,8 +67,7 @@ def generate_json_report(
     }
 
     if include_stats:
-
-        clean_stats = {}
+        clean_stats: Dict[str, Any] = {}
         for key, value in stats.items():
             if isinstance(value, (str, int, float, bool, list, dict)) or value is None:
                 clean_stats[key] = value
@@ -90,7 +88,7 @@ def generate_json_summary(stats: Dict[str, Any]) -> str:
         JSON string representation of the summary
     """
 
-    summary = {
+    summary: Dict[str, Any] = {
         "ghast_version": __version__,
         "generated_at": datetime.now().isoformat(),
         "summary": {

@@ -8,7 +8,7 @@ in GitHub Actions workflows.
 import os
 import re
 import shutil
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, cast
 
 import click
 import yaml
@@ -26,6 +26,7 @@ class SafeLoader(yaml.SafeLoader):
     def compose_node(self, parent: Any, index: Any) -> Node:
         """Override to add line information"""
         node = super(SafeLoader, self).compose_node(parent, index)
+        assert node is not None
         node.start_mark.line = self.line
         node.start_mark.column = self.column
         return node
@@ -37,8 +38,8 @@ class SafeDumper(yaml.SafeDumper):
     pass
 
 
-def construct_mapping(self, node: Node, deep: bool = False) -> Dict[str, Any]:
-    mapping = super(SafeLoader, self).construct_mapping(node, deep=deep)
+def construct_mapping(self: "SafeLoader", node: Node, deep: bool = False) -> Dict[str, Any]:
+    mapping = cast(Dict[str, Any], super(SafeLoader, self).construct_mapping(node, deep=deep))
     mapping["__line__"] = node.start_mark.line
     mapping["__column__"] = node.start_mark.column
     return mapping
@@ -88,7 +89,7 @@ class Fixer:
         self.fixes_applied = 0
         self.fixes_skipped = 0
 
-        findings_by_rule = {}
+        findings_by_rule: Dict[str, List[Finding]] = {}
         for finding in findings:
             if finding.can_fix and finding.rule_id in self.fixers:
                 if finding.rule_id not in findings_by_rule:

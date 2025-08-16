@@ -5,9 +5,9 @@ This module provides the foundation for implementing security rules in ghast.
 Rules are used to check for security issues in GitHub Actions workflows.
 """
 
-from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Tuple
 import re
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
 
 from ..core import Finding
 
@@ -77,7 +77,7 @@ class Rule(ABC):
         column: Optional[int] = None,
         remediation: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
-        can_fix: bool = None,
+        can_fix: Optional[bool] = None,
         severity: Optional[str] = None,
     ) -> Finding:
         """
@@ -162,7 +162,10 @@ class WorkflowRule(Rule):
                 self.create_finding(
                     message="Overly permissive 'write-all' permissions at workflow level",
                     file_path=file_path,
-                    remediation="Restrict permissions to only what's needed using specific permission keys",
+                    remediation=(
+                        "Restrict permissions to only what's needed using "
+                        "specific permission keys"
+                    ),
                     can_fix=False,
                 )
             )
@@ -203,7 +206,10 @@ class JobRule(Rule):
                 self.create_finding(
                     message=f"Overly permissive 'write-all' permissions in job '{job_id}'",
                     file_path=file_path,
-                    remediation="Restrict permissions to only what's needed using specific permission keys",
+                    remediation=(
+                        "Restrict permissions to only what's needed using "
+                        "specific permission keys"
+                    ),
                     can_fix=False,
                 )
             )
@@ -261,7 +267,7 @@ class JobRule(Rule):
                 self.create_finding(
                     message=f"Missing 'runs-on' in job '{job_id}'",
                     file_path=file_path,
-                    remediation=f"Specify a runner, e.g., 'runs-on: ubuntu-latest'",
+                    remediation="Specify a runner, e.g., 'runs-on: ubuntu-latest'",
                     can_fix=True,
                 )
             )
@@ -270,17 +276,20 @@ class JobRule(Rule):
                 self.create_finding(
                     message=f"Job '{job_id}' uses self-hosted runner without labels",
                     file_path=file_path,
-                    remediation="Add specific labels to self-hosted runners for better security isolation",
+                    remediation=(
+                        "Add specific labels to self-hosted runners for better security isolation"
+                    ),
                     can_fix=False,
                 )
             )
         elif isinstance(runs_on, list) and "self-hosted" in runs_on:
-
             findings.append(
                 self.create_finding(
                     message=f"Job '{job_id}' uses self-hosted runner",
                     file_path=file_path,
-                    remediation="Consider using GitHub-hosted runners for better security isolation",
+                    remediation=(
+                        "Consider using GitHub-hosted runners for better security isolation"
+                    ),
                     can_fix=False,
                     severity="LOW" if len(runs_on) > 1 else self.severity,
                 )
@@ -317,7 +326,10 @@ class StepRule(Rule):
         ):
             findings.append(
                 self.create_finding(
-                    message=f"Multiline script in job '{job_id}' step {step_idx+1} has no shell specified",
+                    message=(
+                        f"Multiline script in job '{job_id}' step {step_idx+1} "
+                        "has no shell specified"
+                    ),
                     file_path=file_path,
                     remediation="Add 'shell: bash' to this step",
                     can_fix=True,
@@ -349,7 +361,9 @@ class StepRule(Rule):
             if re.search(r"@(main|master)$", action):
                 findings.append(
                     self.create_finding(
-                        message=f"Step {step_idx+1} in job '{job_id}' uses unstable reference: {action}",
+                        message=(
+                            f"Step {step_idx+1} in job '{job_id}' uses unstable reference: {action}"
+                        ),
                         file_path=file_path,
                         remediation="Pin the action to a specific commit SHA",
                         can_fix=False,
@@ -364,7 +378,10 @@ class StepRule(Rule):
             elif not re.search(r"@[0-9a-fA-F]{39,40}$", action):
                 findings.append(
                     self.create_finding(
-                        message=f"Step {step_idx+1} in job '{job_id}' is not pinned to a specific commit SHA: {action}",
+                        message=(
+                            f"Step {step_idx+1} in job '{job_id}' is not pinned to a specific "
+                            f"commit SHA: {action}"
+                        ),
                         file_path=file_path,
                         remediation="Pin to a specific commit SHA for better security",
                         can_fix=False,
@@ -405,7 +422,10 @@ class TriggerRule(Rule):
                 self.create_finding(
                     message=f"High-risk workflow trigger: '{trigger}'",
                     file_path=file_path,
-                    remediation=f"Use '{trigger}' trigger with caution. It runs with repository access token and secrets access.",
+                    remediation=(
+                        f"Use '{trigger}' trigger with caution. It runs with "
+                        "repository access token and secrets access."
+                    ),
                     can_fix=False,
                 )
             )
@@ -457,7 +477,6 @@ class TokenRule(Rule):
         for pattern, desc in token_patterns:
             matches = re.finditer(pattern, workflow_str, re.IGNORECASE)
             for match in matches:
-
                 context_before = workflow_str[max(0, match.start() - 30) : match.start()]
                 if (
                     "secrets." in context_before
@@ -470,7 +489,10 @@ class TokenRule(Rule):
                     self.create_finding(
                         message=f"{desc} found in workflow file",
                         file_path=file_path,
-                        remediation="Replace hardcoded tokens with secrets, e.g., ${{ secrets.GITHUB_TOKEN }}",
+                        remediation=(
+                            "Replace hardcoded tokens with secrets, e.g., "
+                            "${{ secrets.GITHUB_TOKEN }}"
+                        ),
                         can_fix=False,
                     )
                 )
@@ -480,7 +502,9 @@ class TokenRule(Rule):
                 self.create_finding(
                     message="Dangerous 'toJson(secrets)' usage exposes all secrets",
                     file_path=file_path,
-                    remediation="Never use toJson(secrets), reference individual secrets explicitly",
+                    remediation=(
+                        "Never use toJson(secrets), reference individual secrets explicitly"
+                    ),
                     can_fix=False,
                     severity="CRITICAL",
                 )
