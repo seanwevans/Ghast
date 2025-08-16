@@ -9,7 +9,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import click
 
@@ -19,6 +19,7 @@ from .core import (
     generate_default_config,
     load_config,
     scan_repository,
+    Finding,
 )
 from .reports import generate_full_report, print_report, save_report
 from .rules import create_rule_engine
@@ -106,7 +107,7 @@ def scan(
         findings = scanner.scan_file(str(path), severity_threshold)
         from .core import SEVERITY_LEVELS
 
-        stats = {
+        stats: Dict[str, Any] = {
             "total_files": 1,
             "total_findings": len(findings),
             "severity_counts": {level: 0 for level in SEVERITY_LEVELS},
@@ -114,10 +115,10 @@ def scan(
             "fixable_findings": sum(1 for f in findings if f.can_fix),
         }
         for finding in findings:
-            stats["severity_counts"][finding.severity] = (
-                stats["severity_counts"].get(finding.severity, 0) + 1
-            )
-            stats["rule_counts"][finding.rule_id] = stats["rule_counts"].get(finding.rule_id, 0) + 1
+            severity_counts = cast(Dict[str, int], stats["severity_counts"])
+            severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
+            rule_counts = cast(Dict[str, int], stats["rule_counts"])
+            rule_counts[finding.rule_id] = rule_counts.get(finding.rule_id, 0) + 1
     else:
         if output == "text":
             click.echo(f"Scanning repository: {path}")
@@ -152,10 +153,11 @@ def scan(
         click.echo(f"Results written to {output_file}")
 
         summary = f"Scan complete: {stats['total_findings']} issues found ("
-        summary += f"CRITICAL: {stats.get('severity_counts', {}).get('CRITICAL', 0)}, "
-        summary += f"HIGH: {stats.get('severity_counts', {}).get('HIGH', 0)}, "
-        summary += f"MEDIUM: {stats.get('severity_counts', {}).get('MEDIUM', 0)}, "
-        summary += f"LOW: {stats.get('severity_counts', {}).get('LOW', 0)})"
+        sev_counts = cast(Dict[str, int], stats.get("severity_counts", {}))
+        summary += f"CRITICAL: {sev_counts.get('CRITICAL', 0)}, "
+        summary += f"HIGH: {sev_counts.get('HIGH', 0)}, "
+        summary += f"MEDIUM: {sev_counts.get('MEDIUM', 0)}, "
+        summary += f"LOW: {sev_counts.get('LOW', 0)})"
         click.echo(summary)
     else:
         print_report(findings, stats, format=output, repo_path=repo_path, verbose=verbose)
@@ -163,9 +165,8 @@ def scan(
     from .core import SEVERITY_LEVELS
 
     threshold_index = SEVERITY_LEVELS.index(severity_threshold)
-    severe_findings = sum(
-        stats.get("severity_counts", {}).get(lvl, 0) for lvl in SEVERITY_LEVELS[threshold_index:]
-    )
+    sev_counts = cast(Dict[str, int], stats.get("severity_counts", {}))
+    severe_findings = sum(sev_counts.get(lvl, 0) for lvl in SEVERITY_LEVELS[threshold_index:])
 
     if severe_findings > 0:
         sys.exit(1)
@@ -225,7 +226,7 @@ def fix(
         scanner = WorkflowScanner(strict=strict, config=config_data)
         findings = scanner.scan_file(str(path), severity_threshold)
 
-        stats = {
+        stats: Dict[str, Any] = {
             "total_files": 1,
             "total_findings": len(findings),
             "severity_counts": {},
@@ -234,12 +235,12 @@ def fix(
         }
 
         for finding in findings:
-            stats["severity_counts"][finding.severity] = (
-                stats["severity_counts"].get(finding.severity, 0) + 1
-            )
-            stats["rule_counts"][finding.rule_id] = stats["rule_counts"].get(finding.rule_id, 0) + 1
+            severity_counts = cast(Dict[str, int], stats["severity_counts"])
+            severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
+            rule_counts = cast(Dict[str, int], stats["rule_counts"])
+            rule_counts[finding.rule_id] = rule_counts.get(finding.rule_id, 0) + 1
             if finding.can_fix:
-                stats["fixable_findings"] += 1
+                stats["fixable_findings"] = cast(int, stats["fixable_findings"]) + 1
 
     else:
         click.echo(f"Scanning repository: {path}")
@@ -255,7 +256,7 @@ def fix(
             severity_threshold=severity_threshold,
         )
 
-    findings_by_file = {}
+    findings_by_file: Dict[str, List[Finding]] = {}
     for finding in findings:
         if finding.file_path not in findings_by_file:
             findings_by_file[finding.file_path] = []
@@ -284,18 +285,22 @@ def fix(
         click.echo(f"Issues fixed: {stats['fixes_applied']}")
         click.echo(f"Issues skipped: {stats['fixes_skipped']}")
 
-        if stats["fixes_applied"] > 0:
+        fixes_applied = cast(int, stats["fixes_applied"])
+        total_findings = cast(int, stats["total_findings"])
+        if fixes_applied > 0:
             click.echo("\n✅ Fixes applied successfully!")
-        elif stats["total_findings"] == 0:
+        elif total_findings == 0:
             click.echo("\n✅ No issues found!")
         else:
             click.echo("\n⚠️ Some issues could not be automatically fixed")
     else:
-        click.echo(f"Fixable issues: {stats.get('fixable_findings', 0)}")
+        fixable_findings = cast(int, stats.get("fixable_findings", 0))
+        click.echo(f"Fixable issues: {fixable_findings}")
 
-        if stats.get("fixable_findings", 0) > 0:
+        total_findings = cast(int, stats["total_findings"])
+        if fixable_findings > 0:
             click.echo("\n✅ Issues can be fixed (run without --dry-run to apply)")
-        elif stats["total_findings"] == 0:
+        elif total_findings == 0:
             click.echo("\n✅ No issues found!")
         else:
             click.echo("\n⚠️ Some issues cannot be automatically fixed")
@@ -350,9 +355,9 @@ def rules(format: str) -> None:
     else:
         click.echo("🔍 ghast supports the following rules:")
 
-        by_category = {}
+        by_category: Dict[str, List[Dict[str, Any]]] = {}
         for rule in rules_list:
-            category = rule.get("category", "other")
+            category = cast(str, rule.get("category", "other"))
             if category not in by_category:
                 by_category[category] = []
             by_category[category].append(rule)
@@ -400,7 +405,7 @@ def analyze(file_path: str) -> None:
             click.echo("✅ No issues found!")
             return
 
-        by_severity = {}
+        by_severity: Dict[str, List[Finding]] = {}
         for finding in findings:
             if finding.severity not in by_severity:
                 by_severity[finding.severity] = []
