@@ -6,29 +6,27 @@ including position-aware parsing and formatting preservation.
 """
 
 import yaml
-import re
-from typing import Dict, Any, List, Tuple, Optional, TextIO
+from typing import Any, Dict, List, Optional, TextIO, Sequence, Union, cast
 from pathlib import Path
+from yaml.nodes import MappingNode, Node
 
 
 class LineColumnLoader(yaml.SafeLoader):
-    """
-    Custom YAML loader that tracks line and column information
-    """
+    """Custom YAML loader that tracks line and column information"""
 
-    def __init__(self, stream):
+    def __init__(self, stream: TextIO | str) -> None:
         super().__init__(stream)
 
-    def compose_node(self, parent, index):
+    def compose_node(self, parent: Any, index: Any) -> Node:
         """Add line/column information to nodes"""
-        node = super().compose_node(parent, index)
-        node.__line__ = self.line + 1
-        node.__column__ = self.column
+        node = cast(Node, super().compose_node(parent, index))
+        setattr(node, "__line__", self.line + 1)
+        setattr(node, "__column__", self.column)
         return node
 
-    def construct_mapping(self, node, deep=False):
+    def construct_mapping(self, node: MappingNode, deep: bool = False) -> Dict[Any, Any]:
         """Add line/column information to dictionaries"""
-        mapping = super().construct_mapping(node, deep=deep)
+        mapping = cast(Dict[Any, Any], super().construct_mapping(node, deep=deep))
         mapping["__line__"] = getattr(node, "__line__", None)
         mapping["__column__"] = getattr(node, "__column__", None)
         return mapping
@@ -55,11 +53,9 @@ for first_char, resolvers in list(LineColumnLoader.yaml_implicit_resolvers.items
 
 
 class FormattingPreservingDumper(yaml.SafeDumper):
-    """
-    Custom YAML dumper that tries to preserve formatting
-    """
+    """Custom YAML dumper that tries to preserve formatting"""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
 
@@ -76,7 +72,7 @@ def load_yaml_with_positions(content: str) -> Dict[str, Any]:
     Raises:
         yaml.YAMLError: If YAML parsing fails
     """
-    return yaml.load(content, Loader=LineColumnLoader)
+    return cast(Dict[str, Any], yaml.load(content, Loader=LineColumnLoader))
 
 
 def load_yaml_file_with_positions(file_path: str) -> Dict[str, Any]:
@@ -117,7 +113,7 @@ def clean_positions(obj: Any) -> Any:
     return obj
 
 
-def dump_yaml(obj: Any, stream=None, **kwargs) -> Optional[str]:
+def dump_yaml(obj: Any, stream: Optional[TextIO] = None, **kwargs: Any) -> Optional[str]:
     """
     Dump YAML object with formatting preservation
 
@@ -135,7 +131,10 @@ def dump_yaml(obj: Any, stream=None, **kwargs) -> Optional[str]:
     kwargs.setdefault("sort_keys", False)
     kwargs.setdefault("default_flow_style", False)
 
-    return yaml.dump(cleaned_obj, stream, Dumper=FormattingPreservingDumper, **kwargs)
+    return cast(
+        Optional[str],
+        yaml.dump(cleaned_obj, stream, Dumper=FormattingPreservingDumper, **kwargs),
+    )
 
 
 def find_yaml_files(directory: str, recursive: bool = True) -> List[Path]:
@@ -226,7 +225,9 @@ def extract_line_from_file(file_path: str, line_number: int, context: int = 2) -
         return []
 
 
-def get_element_at_path(yaml_content: Dict[str, Any], path: List[str]) -> Any:
+def get_element_at_path(
+    yaml_content: Any, path: Sequence[Union[str, int]]
+) -> Any:
     """
     Get element at a specific path in a YAML object
 
