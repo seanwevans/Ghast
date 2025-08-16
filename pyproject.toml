@@ -81,6 +81,7 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
+exclude = ["ghast/tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["ghast/tests"]
