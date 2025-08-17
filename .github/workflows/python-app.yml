@@ -85,6 +85,7 @@ jobs:
     - name: Commit formatted code
       run: |
         if [[ -n "$(git status --porcelain)" ]]; then
+          git pull
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "chore: format code with black"
