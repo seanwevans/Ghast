@@ -185,7 +185,7 @@ class WorkflowScanner:
         findings: List[Finding] = []
 
         try:
-            with open(file_path, "r") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 content = yaml.safe_load(f)
 
             # Validate that the file appears to be a GitHub Actions workflow. If
