@@ -94,9 +94,7 @@ def _prepare_scan(
 
         for finding in findings:
             severity_counts = cast(Dict[str, int], stats["severity_counts"])
-            severity_counts[finding.severity] = severity_counts.get(
-                finding.severity, 0
-            ) + 1
+            severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
             rule_counts = cast(Dict[str, int], stats["rule_counts"])
             rule_counts[finding.rule_id] = rule_counts.get(finding.rule_id, 0) + 1
     else:
