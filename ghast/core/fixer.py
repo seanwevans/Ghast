@@ -99,7 +99,7 @@ class Fixer:
         if not findings_by_rule:
             return 0, 0
 
-        with open(file_path, "r") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             workflow = yaml.load(f, Loader=SafeLoader)
 
         backup_path = f"{file_path}.bak"
@@ -141,7 +141,7 @@ class Fixer:
                         self.fixes_skipped += 1
 
             self._clean_workflow(workflow)
-            with open(file_path, "w") as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 yaml.dump(
                     workflow,
                     f,

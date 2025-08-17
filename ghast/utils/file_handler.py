@@ -161,7 +161,7 @@ def safe_write_file(file_path: str, content: str, create_backup: bool = True) ->
 
         fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(file_path)))
         try:
-            with os.fdopen(fd, "w") as f:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(content)
 
             shutil.move(temp_path, file_path)

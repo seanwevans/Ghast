@@ -89,7 +89,7 @@ def load_yaml_file_with_positions(file_path: str) -> Dict[str, Any]:
         FileNotFoundError: If file is not found
         yaml.YAMLError: If YAML parsing fails
     """
-    with open(file_path, "r") as f:
+    with open(file_path, "r", encoding="utf-8") as f:
         return load_yaml_with_positions(f.read())
 
 
@@ -214,7 +214,7 @@ def extract_line_from_file(file_path: str, line_number: int, context: int = 2) -
         return []
 
     try:
-        with open(file_path, "r") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
         start = max(0, line_number - 1 - context)

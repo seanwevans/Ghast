@@ -135,5 +135,5 @@ def save_json_report(
     """
     report = generate_json_report(findings, stats, include_stats)
 
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(report)

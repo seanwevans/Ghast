@@ -216,7 +216,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
             raise ConfigurationError(f"Configuration file not found: {config_path}")
 
         try:
-            with open(config_path, "r") as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 user_config = yaml.safe_load(f)
 
             if user_config:
@@ -232,7 +232,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
         for path in get_config_paths():
             if os.path.exists(path):
                 try:
-                    with open(path, "r") as f:
+                    with open(path, "r", encoding="utf-8") as f:
                         user_config = yaml.safe_load(f)
 
                     if user_config:
@@ -262,7 +262,7 @@ def save_config(config: Dict[str, Any], config_path: str) -> None:
 
         os.makedirs(os.path.dirname(os.path.abspath(config_path)), exist_ok=True)
 
-        with open(config_path, "w") as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
     except Exception as e:
         raise ConfigurationError(f"Error saving configuration: {e}")
@@ -290,7 +290,7 @@ def generate_default_config(output_path: Optional[str] = None) -> str:
 
             os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 
-            with open(output_path, "w") as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write(default_config_yaml)
         except Exception as e:
             raise ConfigurationError(f"Error saving default configuration: {e}")
