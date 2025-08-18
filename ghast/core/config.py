@@ -131,6 +131,7 @@ def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, A
 
     return result
 
+
 def _serialize_enums(obj: Any) -> Any:
     """Recursively convert Enum values to their underlying value for YAML output."""
     if isinstance(obj, dict):
@@ -168,7 +169,6 @@ def validate_config(config: Dict[str, Any]) -> None:
         ):
             if rule_key in config and not isinstance(config[rule_key], bool):
                 raise ConfigurationError(f"Rule '{rule_key}' must be a boolean (true/false)")
-
 
     if "severity_thresholds" in config:
         if not isinstance(config["severity_thresholds"], dict):
@@ -316,7 +316,6 @@ def save_config(config: Dict[str, Any], config_path: str) -> None:
     try:
 
         os.makedirs(os.path.dirname(os.path.abspath(config_path)), exist_ok=True)
-
 
         with open(config_path, "w") as f:
             yaml.dump(_serialize_enums(config), f, default_flow_style=False, sort_keys=False)

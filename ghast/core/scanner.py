@@ -14,6 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import yaml
 
+
 class Severity(Enum):
     """Enumeration of finding severity levels."""
 
@@ -186,7 +187,9 @@ class WorkflowScanner:
             description="Alias for check_shell",
         )
 
-    def scan_file(self, file_path: str, severity_threshold: str = Severity.LOW.value) -> List[Finding]:
+    def scan_file(
+        self, file_path: str, severity_threshold: str = Severity.LOW.value
+    ) -> List[Finding]:
         """
         Scan a single workflow file for issues
 
@@ -245,7 +248,9 @@ class WorkflowScanner:
 
         return findings
 
-    def scan_directory(self, directory_path: str, severity_threshold: str = Severity.LOW.value) -> List[Finding]:
+    def scan_directory(
+        self, directory_path: str, severity_threshold: str = Severity.LOW.value
+    ) -> List[Finding]:
         """
         Scan all workflow files in a directory
 

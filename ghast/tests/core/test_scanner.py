@@ -9,6 +9,7 @@ from ghast.core.scanner import Severity
 
 import pytest
 
+
 def test_scanner_initialization():
     """Test scanner initialization with default and custom configs."""
 
