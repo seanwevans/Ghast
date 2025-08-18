@@ -130,6 +130,56 @@ def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, A
     return result
 
 
+def _validate_severity_thresholds(config: Dict[str, Any]) -> None:
+    """Validate severity threshold configuration"""
+
+    valid_severities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    if "severity_thresholds" in config:
+        if not isinstance(config["severity_thresholds"], dict):
+            raise ConfigurationError("'severity_thresholds' must be a dictionary")
+
+        for rule, severity in config["severity_thresholds"].items():
+            if severity not in valid_severities:
+                raise ConfigurationError(
+                    f"Invalid severity '{severity}' for rule '{rule}'. Must be one of: {', '.join(valid_severities)}"
+                )
+
+
+def _validate_auto_fix(config: Dict[str, Any]) -> None:
+    """Validate auto-fix configuration"""
+
+    if "auto_fix" in config:
+        if not isinstance(config["auto_fix"], dict):
+            raise ConfigurationError("'auto_fix' must be a dictionary")
+
+        if "enabled" in config["auto_fix"] and not isinstance(config["auto_fix"]["enabled"], bool):
+            raise ConfigurationError("'auto_fix.enabled' must be a boolean")
+
+        if "rules" in config["auto_fix"]:
+            if not isinstance(config["auto_fix"]["rules"], dict):
+                raise ConfigurationError("'auto_fix.rules' must be a dictionary")
+
+            for rule, enabled in config["auto_fix"]["rules"].items():
+                if not isinstance(enabled, bool):
+                    raise ConfigurationError(f"'auto_fix.rules.{rule}' must be a boolean")
+
+
+def _validate_defaults(config: Dict[str, Any]) -> None:
+    """Validate default configuration values"""
+
+    if "default_timeout_minutes" in config:
+        try:
+            timeout = int(config["default_timeout_minutes"])
+            if timeout <= 0:
+                raise ConfigurationError("'default_timeout_minutes' must be a positive integer")
+        except ValueError:
+            raise ConfigurationError("'default_timeout_minutes' must be a positive integer")
+
+    if "default_action_versions" in config:
+        if not isinstance(config["default_action_versions"], dict):
+            raise ConfigurationError("'default_action_versions' must be a dictionary")
+
+
 def validate_config(config: Dict[str, Any]) -> None:
     """Validate configuration structure and values"""
 
@@ -157,43 +207,9 @@ def validate_config(config: Dict[str, Any]) -> None:
             if rule_key in config and not isinstance(config[rule_key], bool):
                 raise ConfigurationError(f"Rule '{rule_key}' must be a boolean (true/false)")
 
-    valid_severities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
-    if "severity_thresholds" in config:
-        if not isinstance(config["severity_thresholds"], dict):
-            raise ConfigurationError("'severity_thresholds' must be a dictionary")
-
-        for rule, severity in config["severity_thresholds"].items():
-            if severity not in valid_severities:
-                raise ConfigurationError(
-                    f"Invalid severity '{severity}' for rule '{rule}'. Must be one of: {', '.join(valid_severities)}"
-                )
-
-    if "auto_fix" in config:
-        if not isinstance(config["auto_fix"], dict):
-            raise ConfigurationError("'auto_fix' must be a dictionary")
-
-        if "enabled" in config["auto_fix"] and not isinstance(config["auto_fix"]["enabled"], bool):
-            raise ConfigurationError("'auto_fix.enabled' must be a boolean")
-
-        if "rules" in config["auto_fix"]:
-            if not isinstance(config["auto_fix"]["rules"], dict):
-                raise ConfigurationError("'auto_fix.rules' must be a dictionary")
-
-            for rule, enabled in config["auto_fix"]["rules"].items():
-                if not isinstance(enabled, bool):
-                    raise ConfigurationError(f"'auto_fix.rules.{rule}' must be a boolean")
-
-    if "default_timeout_minutes" in config:
-        try:
-            timeout = int(config["default_timeout_minutes"])
-            if timeout <= 0:
-                raise ConfigurationError("'default_timeout_minutes' must be a positive integer")
-        except ValueError:
-            raise ConfigurationError("'default_timeout_minutes' must be a positive integer")
-
-    if "default_action_versions" in config:
-        if not isinstance(config["default_action_versions"], dict):
-            raise ConfigurationError("'default_action_versions' must be a dictionary")
+    _validate_severity_thresholds(config)
+    _validate_auto_fix(config)
+    _validate_defaults(config)
 
 
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
@@ -216,7 +232,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
             raise ConfigurationError(f"Configuration file not found: {config_path}")
 
         try:
-            with open(config_path, "r") as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 user_config = yaml.safe_load(f)
 
             if user_config:
@@ -232,7 +248,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
         for path in get_config_paths():
             if os.path.exists(path):
                 try:
-                    with open(path, "r") as f:
+                    with open(path, "r", encoding="utf-8") as f:
                         user_config = yaml.safe_load(f)
 
                     if user_config:
@@ -262,7 +278,7 @@ def save_config(config: Dict[str, Any], config_path: str) -> None:
 
         os.makedirs(os.path.dirname(os.path.abspath(config_path)), exist_ok=True)
 
-        with open(config_path, "w") as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
     except Exception as e:
         raise ConfigurationError(f"Error saving configuration: {e}")
@@ -290,7 +306,7 @@ def generate_default_config(output_path: Optional[str] = None) -> str:
 
             os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 
-            with open(output_path, "w") as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write(default_config_yaml)
         except Exception as e:
             raise ConfigurationError(f"Error saving default configuration: {e}")
