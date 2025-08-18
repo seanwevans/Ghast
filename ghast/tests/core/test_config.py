@@ -21,6 +21,7 @@ from ghast.core.config import (
     _validate_auto_fix,
     _validate_defaults,
 )
+from ghast.core.scanner import Severity
 
 
 def test_default_config():
@@ -59,7 +60,7 @@ def test_load_config_with_path(temp_dir):
 
     assert config["check_timeout"] is False
     assert config["check_shell"] is True
-    assert config["severity_thresholds"]["check_deprecated"] == "HIGH"
+    assert config["severity_thresholds"]["check_deprecated"] == Severity.HIGH
 
     assert "default_timeout_minutes" in config
 

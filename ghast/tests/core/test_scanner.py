@@ -4,11 +4,10 @@ test_scanner.py - Tests for the scanner module
 
 from pathlib import Path
 
+from ghast.core import WorkflowScanner, Finding, scan_repository, SEVERITY_LEVELS
+from ghast.core.scanner import Severity
+
 import pytest
-
-from ghast.core import SEVERITY_LEVELS, Finding, WorkflowScanner, scan_repository
-from ghast.utils.yaml_handler import load_yaml_file_with_positions
-
 
 def test_scanner_initialization():
     """Test scanner initialization with default and custom configs."""
@@ -34,9 +33,12 @@ def test_finding_severity_validation():
     """Test that Finding constructor validates severity levels."""
 
     finding = Finding(
-        rule_id="test_rule", severity="HIGH", message="Test message", file_path="/path/to/file.yml"
+        rule_id="test_rule",
+        severity=Severity.HIGH,
+        message="Test message",
+        file_path="/path/to/file.yml",
     )
-    assert finding.severity == "HIGH"
+    assert finding.severity == Severity.HIGH.value
 
     with pytest.raises(ValueError):
         Finding(
