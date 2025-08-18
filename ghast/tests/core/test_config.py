@@ -17,6 +17,9 @@ from ghast.core.config import (
     ConfigurationError,
     DEFAULT_CONFIG,
     disable_rules,
+    _validate_severity_thresholds,
+    _validate_auto_fix,
+    _validate_defaults,
 )
 from ghast.core.scanner import Severity
 
@@ -168,6 +171,36 @@ def test_generate_default_config():
     assert "check_timeout" in config
     assert "severity_thresholds" in config
     assert "auto_fix" in config
+
+
+def test_validate_severity_thresholds_helper():
+    """Test helper for validating severity thresholds."""
+    valid = {"severity_thresholds": {"check_timeout": "HIGH"}}
+    _validate_severity_thresholds(valid)
+
+    invalid = {"severity_thresholds": {"check_timeout": "INVALID"}}
+    with pytest.raises(ConfigurationError):
+        _validate_severity_thresholds(invalid)
+
+
+def test_validate_auto_fix_helper():
+    """Test helper for validating auto_fix section."""
+    valid = {"auto_fix": {"enabled": True, "rules": {"check_timeout": False}}}
+    _validate_auto_fix(valid)
+
+    invalid = {"auto_fix": {"rules": {"check_timeout": "yes"}}}
+    with pytest.raises(ConfigurationError):
+        _validate_auto_fix(invalid)
+
+
+def test_validate_defaults_helper():
+    """Test helper for validating default values."""
+    valid = {"default_timeout_minutes": 5, "default_action_versions": {}}
+    _validate_defaults(valid)
+
+    invalid = {"default_timeout_minutes": -1}
+    with pytest.raises(ConfigurationError):
+        _validate_defaults(invalid)
 
 
 def test_generate_default_config_to_file(temp_dir):

@@ -2,14 +2,12 @@
 test_scanner.py - Tests for the scanner module
 """
 
-import os
-import pytest
 from pathlib import Path
-import yaml
 
 from ghast.core import WorkflowScanner, Finding, scan_repository, SEVERITY_LEVELS
 from ghast.core.scanner import Severity
 
+import pytest
 
 def test_scanner_initialization():
     """Test scanner initialization with default and custom configs."""
@@ -54,9 +52,7 @@ def test_finding_severity_validation():
 def test_check_timeout(patchable_workflow_file):
     """Test check_timeout rule."""
     scanner = WorkflowScanner()
-
-    with open(patchable_workflow_file, "r") as f:
-        workflow = yaml.safe_load(f)
+    workflow = load_yaml_file_with_positions(patchable_workflow_file)
 
     findings = scanner.check_timeout(workflow, patchable_workflow_file)
 
@@ -64,42 +60,39 @@ def test_check_timeout(patchable_workflow_file):
     assert any("timeout" in finding.message.lower() for finding in findings)
     assert all(finding.rule_id == "check_timeout" for finding in findings)
     assert all(finding.can_fix for finding in findings)
+    assert all(f.line_number is not None and f.column is not None for f in findings)
 
 
 def test_check_shell(patchable_workflow_file):
     """Test check_shell rule."""
     scanner = WorkflowScanner()
-
-    with open(patchable_workflow_file, "r") as f:
-        workflow = yaml.safe_load(f)
+    workflow = load_yaml_file_with_positions(patchable_workflow_file)
 
     findings = scanner.check_shell(workflow, patchable_workflow_file)
 
     assert len(findings) > 0
     assert any("shell" in finding.message.lower() for finding in findings)
     assert all(finding.rule_id == "check_shell" for finding in findings)
+    assert all(f.line_number is not None and f.column is not None for f in findings)
 
 
 def test_check_deprecated(patchable_workflow_file):
     """Test check_deprecated rule."""
     scanner = WorkflowScanner()
-
-    with open(patchable_workflow_file, "r") as f:
-        workflow = yaml.safe_load(f)
+    workflow = load_yaml_file_with_positions(patchable_workflow_file)
 
     findings = scanner.check_deprecated(workflow, patchable_workflow_file)
 
     assert len(findings) > 0
     assert any("deprecated" in finding.message.lower() for finding in findings)
     assert all(finding.rule_id == "check_deprecated" for finding in findings)
+    assert all(f.line_number is not None and f.column is not None for f in findings)
 
 
 def test_check_workflow_name(patchable_workflow_file):
     """Test check_workflow_name rule."""
     scanner = WorkflowScanner()
-
-    with open(patchable_workflow_file, "r") as f:
-        workflow = yaml.safe_load(f)
+    workflow = load_yaml_file_with_positions(patchable_workflow_file)
 
     findings = scanner.check_workflow_name(workflow, patchable_workflow_file)
 
@@ -111,9 +104,7 @@ def test_check_workflow_name(patchable_workflow_file):
 def test_check_ppe_vulnerabilities(insecure_workflow_file):
     """Test check_ppe_vulnerabilities rule."""
     scanner = WorkflowScanner()
-
-    with open(insecure_workflow_file, "r") as f:
-        workflow = yaml.safe_load(f)
+    workflow = load_yaml_file_with_positions(insecure_workflow_file)
 
     findings = scanner.check_ppe_vulnerabilities(workflow, insecure_workflow_file)
 
@@ -121,20 +112,20 @@ def test_check_ppe_vulnerabilities(insecure_workflow_file):
     assert any("poisoned pipeline execution" in finding.message.lower() for finding in findings)
     assert all(finding.rule_id == "check_ppe_vulnerabilities" for finding in findings)
     assert all(finding.severity == "CRITICAL" for finding in findings)
+    assert all(f.line_number is not None and f.column is not None for f in findings)
 
 
 def test_check_command_injection(insecure_workflow_file):
     """Test check_command_injection rule."""
     scanner = WorkflowScanner()
-
-    with open(insecure_workflow_file, "r") as f:
-        workflow = yaml.safe_load(f)
+    workflow = load_yaml_file_with_positions(insecure_workflow_file)
 
     findings = scanner.check_command_injection(workflow, insecure_workflow_file)
 
     assert len(findings) > 0
     assert any("untrusted" in finding.message.lower() for finding in findings)
     assert all(finding.rule_id == "check_command_injection" for finding in findings)
+    assert all(f.line_number is not None and f.column is not None for f in findings)
 
 
 def test_scan_file(patchable_workflow_file):
@@ -151,6 +142,9 @@ def test_scan_file(patchable_workflow_file):
         assert finding.severity in SEVERITY_LEVELS
         assert finding.message
         assert finding.file_path == patchable_workflow_file
+        if finding.rule_id != "check_workflow_name":
+            assert finding.line_number is not None
+            assert finding.column is not None
 
 
 def test_scan_repository(mock_repo):

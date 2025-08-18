@@ -236,7 +236,7 @@ def save_sarif_report(
         tool_version=tool_version,
     )
 
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(report)
 
 
@@ -290,5 +290,5 @@ def generate_sarif_suppression_file(findings: List[Finding], output_path: str) -
         ],
     }
 
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(suppressions_file, f, indent=2)
