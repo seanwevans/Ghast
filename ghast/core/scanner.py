@@ -13,6 +13,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import yaml
 
+from ..utils.yaml_handler import load_yaml_file_with_positions
+
 SEVERITY_LEVELS = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
 
@@ -185,8 +187,7 @@ class WorkflowScanner:
         findings: List[Finding] = []
 
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = yaml.safe_load(f)
+            content = load_yaml_file_with_positions(file_path)
 
             # Validate that the file appears to be a GitHub Actions workflow. If
             # the top-level structure is not a mapping or required keys are
@@ -260,6 +261,8 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__"):
+                continue
             steps = job.get("steps", [])
 
             # Count individual commands within multiline run steps to better
@@ -282,6 +285,8 @@ class WorkflowScanner:
                         severity="LOW",
                         message=f"Job '{job_id}' has {step_count} steps but no timeout-minutes set",
                         file_path=file_path,
+                        line_number=job.get("__line__"),
+                        column=job.get("__column__"),
                         remediation=f"Add 'timeout-minutes: 15' to job '{job_id}'",
                         can_fix=True,
                     )
@@ -295,6 +300,8 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__"):
+                continue
             steps = job.get("steps", [])
             for step_idx, step in enumerate(steps):
                 if isinstance(step, dict) and "run" in step and isinstance(step["run"], str):
@@ -305,6 +312,8 @@ class WorkflowScanner:
                                 severity="LOW",
                                 message=f"Multiline script in job '{job_id}' step {step_idx+1} has no shell specified",
                                 file_path=file_path,
+                                line_number=step.get("__line__"),
+                                column=step.get("__column__"),
                                 remediation="Add 'shell: bash' to this step",
                                 can_fix=True,
                             )
@@ -324,6 +333,8 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__"):
+                continue
             steps = job.get("steps", [])
             for step_idx, step in enumerate(steps):
                 if isinstance(step, dict) and "uses" in step:
@@ -335,6 +346,8 @@ class WorkflowScanner:
                                     severity="MEDIUM",
                                     message=f"Deprecated action '{step['uses']}' in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
+                                    line_number=step.get("__line__"),
+                                    column=step.get("__column__"),
                                     remediation=recommendation,
                                     can_fix=True,
                                 )
@@ -348,6 +361,8 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__"):
+                continue
             runs_on = job.get("runs-on", "")
 
             if not runs_on:
@@ -357,6 +372,8 @@ class WorkflowScanner:
                         severity="MEDIUM",
                         message=f"Missing 'runs-on' in job '{job_id}'",
                         file_path=file_path,
+                        line_number=job.get("__line__"),
+                        column=job.get("__column__"),
                         remediation="Specify a runner, e.g., 'runs-on: ubuntu-latest'",
                         can_fix=True,
                     )
@@ -368,6 +385,8 @@ class WorkflowScanner:
                         severity="MEDIUM",
                         message=f"Job '{job_id}' uses self-hosted runner without labels",
                         file_path=file_path,
+                        line_number=job.get("__line__"),
+                        column=job.get("__column__"),
                         remediation="Add specific labels to self-hosted runners for better security isolation",
                         can_fix=False,
                     )
@@ -379,6 +398,8 @@ class WorkflowScanner:
                         severity="LOW" if len(runs_on) > 1 else "MEDIUM",
                         message=f"Job '{job_id}' uses self-hosted runner",
                         file_path=file_path,
+                        line_number=job.get("__line__"),
+                        column=job.get("__column__"),
                         remediation="Consider using GitHub-hosted runners for better security isolation",
                         can_fix=False,
                     )
@@ -410,6 +431,8 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__"):
+                continue
             if job.get("continue-on-error") is True:
                 findings.append(
                     Finding(
@@ -417,6 +440,8 @@ class WorkflowScanner:
                         severity="MEDIUM",
                         message=f"Job '{job_id}' has 'continue-on-error: true'",
                         file_path=file_path,
+                        line_number=job.get("__line__"),
+                        column=job.get("__column__"),
                         remediation="Remove 'continue-on-error' or set to false to ensure workflow fails on error",
                         can_fix=False,
                     )
@@ -431,6 +456,8 @@ class WorkflowScanner:
                             severity="MEDIUM",
                             message=f"Step {step_idx+1} in job '{job_id}' has 'continue-on-error: true'",
                             file_path=file_path,
+                            line_number=step.get("__line__"),
+                            column=step.get("__column__"),
                             remediation="Remove 'continue-on-error' or set to false to ensure workflow fails on error",
                             can_fix=False,
                         )
@@ -508,6 +535,8 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__"):
+                continue
             if job.get("uses") and "with" in job:
                 if not job.get("inputs"):
                     findings.append(
@@ -516,6 +545,8 @@ class WorkflowScanner:
                             severity="MEDIUM",
                             message=f"Reusable workflow in job '{job_id}' uses 'with' without defining 'inputs'",
                             file_path=file_path,
+                            line_number=job.get("__line__"),
+                            column=job.get("__column__"),
                             remediation="Define explicit 'inputs' for reusable workflows",
                             can_fix=False,
                         )
@@ -543,6 +574,8 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__"):
+                continue
             steps = job.get("steps", [])
 
             checkout_found = False
@@ -579,6 +612,8 @@ class WorkflowScanner:
                         severity="CRITICAL",
                         message=f"Poisoned Pipeline Execution vulnerability: job '{job_id}' uses {', '.join(high_risk_triggers_used)} trigger with checkout of untrusted code",
                         file_path=file_path,
+                        line_number=job.get("__line__"),
+                        column=job.get("__column__"),
                         remediation="Use pull_request trigger instead, or if pull_request_target is required, do not check out untrusted code or use dedicated jobs with restricted permissions.",
                         can_fix=False,
                         context={
@@ -595,6 +630,8 @@ class WorkflowScanner:
                         severity="CRITICAL",
                         message=f"High-risk secret exposure: job '{job_id}' uses 'secrets: inherit' with {', '.join(high_risk_triggers_used)} trigger",
                         file_path=file_path,
+                        line_number=job.get("__line__"),
+                        column=job.get("__column__"),
                         remediation="Explicitly pass only required secrets to jobs, or use 'repositories' field to restrict which repos can use this workflow",
                         can_fix=False,
                         context={"triggers": list(high_risk_triggers_used)},
@@ -634,6 +671,8 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__"):
+                continue
             steps = job.get("steps", [])
             for step_idx, step in enumerate(steps):
                 if isinstance(step, dict) and "run" in step and isinstance(step["run"], str):
@@ -647,6 +686,8 @@ class WorkflowScanner:
                                     severity="HIGH",
                                     message=f"{desc} in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
+                                    line_number=step.get("__line__"),
+                                    column=step.get("__column__"),
                                     remediation="Never use untrusted input directly in shell commands. Use input validation or environment variables with proper quoting.",
                                     can_fix=False,
                                 )
@@ -660,6 +701,8 @@ class WorkflowScanner:
                                     severity="MEDIUM",
                                     message=f"Environment variable interpolation in shell command in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
+                                    line_number=step.get("__line__"),
+                                    column=step.get("__column__"),
                                     remediation="Be careful with environment variable interpolation in shell commands. Consider using proper quoting.",
                                     can_fix=False,
                                 )
@@ -673,6 +716,8 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__"):
+                continue
             steps = job.get("steps", [])
 
             checkout_step_idx = None
@@ -704,6 +749,8 @@ class WorkflowScanner:
                                     severity="HIGH",
                                     message=f"Modification of GITHUB_ENV after checkout in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
+                                    line_number=step.get("__line__"),
+                                    column=step.get("__column__"),
                                     remediation="Avoid modifying GITHUB_ENV after checking out untrusted code, or move environment settings before checkout.",
                                     can_fix=False,
                                 )
@@ -720,6 +767,8 @@ class WorkflowScanner:
                                     severity="HIGH",
                                     message=f"Modification of GITHUB_PATH after checkout in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
+                                    line_number=step.get("__line__"),
+                                    column=step.get("__column__"),
                                     remediation="Avoid modifying GITHUB_PATH after checking out untrusted code, or move path modifications before checkout.",
                                     can_fix=False,
                                 )
