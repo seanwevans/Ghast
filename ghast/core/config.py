@@ -8,6 +8,8 @@ import os
 import yaml
 from typing import Any, Dict, Optional, List, cast
 
+from .scanner import Severity
+
 DEFAULT_CONFIG = {
     "check_timeout": True,
     "check_shell": True,
@@ -22,18 +24,18 @@ DEFAULT_CONFIG = {
     "check_command_injection": True,
     "check_env_injection": True,
     "severity_thresholds": {
-        "check_timeout": "LOW",
-        "check_shell": "LOW",
-        "check_deprecated": "MEDIUM",
-        "check_runs_on": "MEDIUM",
-        "check_workflow_name": "LOW",
-        "check_continue_on_error": "MEDIUM",
-        "check_tokens": "HIGH",
-        "check_inline_bash": "LOW",
-        "check_reusable_inputs": "MEDIUM",
-        "check_ppe_vulnerabilities": "CRITICAL",
-        "check_command_injection": "HIGH",
-        "check_env_injection": "HIGH",
+        "check_timeout": Severity.LOW,
+        "check_shell": Severity.LOW,
+        "check_deprecated": Severity.MEDIUM,
+        "check_runs_on": Severity.MEDIUM,
+        "check_workflow_name": Severity.LOW,
+        "check_continue_on_error": Severity.MEDIUM,
+        "check_tokens": Severity.HIGH,
+        "check_inline_bash": Severity.LOW,
+        "check_reusable_inputs": Severity.MEDIUM,
+        "check_ppe_vulnerabilities": Severity.CRITICAL,
+        "check_command_injection": Severity.HIGH,
+        "check_env_injection": Severity.HIGH,
     },
     "auto_fix": {
         "enabled": True,
@@ -130,6 +132,17 @@ def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, A
     return result
 
 
+def _serialize_enums(obj: Any) -> Any:
+    """Recursively convert Enum values to their underlying value for YAML output."""
+    if isinstance(obj, dict):
+        return {k: _serialize_enums(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_serialize_enums(v) for v in obj]
+    if isinstance(obj, Severity):
+        return obj.value
+    return obj
+
+
 def validate_config(config: Dict[str, Any]) -> None:
     """Validate configuration structure and values"""
 
@@ -157,15 +170,17 @@ def validate_config(config: Dict[str, Any]) -> None:
             if rule_key in config and not isinstance(config[rule_key], bool):
                 raise ConfigurationError(f"Rule '{rule_key}' must be a boolean (true/false)")
 
-    valid_severities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     if "severity_thresholds" in config:
         if not isinstance(config["severity_thresholds"], dict):
             raise ConfigurationError("'severity_thresholds' must be a dictionary")
 
-        for rule, severity in config["severity_thresholds"].items():
-            if severity not in valid_severities:
+        for rule, severity in list(config["severity_thresholds"].items()):
+            try:
+                config["severity_thresholds"][rule] = Severity(severity)
+            except Exception:
+                valid = ", ".join(level.value for level in Severity)
                 raise ConfigurationError(
-                    f"Invalid severity '{severity}' for rule '{rule}'. Must be one of: {', '.join(valid_severities)}"
+                    f"Invalid severity '{severity}' for rule '{rule}'. Must be one of: {valid}"
                 )
 
     if "auto_fix" in config:
@@ -263,7 +278,7 @@ def save_config(config: Dict[str, Any], config_path: str) -> None:
         os.makedirs(os.path.dirname(os.path.abspath(config_path)), exist_ok=True)
 
         with open(config_path, "w") as f:
-            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+            yaml.dump(_serialize_enums(config), f, default_flow_style=False, sort_keys=False)
     except Exception as e:
         raise ConfigurationError(f"Error saving configuration: {e}")
 
@@ -282,7 +297,8 @@ def generate_default_config(output_path: Optional[str] = None) -> str:
         ConfigurationError: If configuration cannot be saved
     """
     default_config_yaml = cast(
-        str, yaml.dump(DEFAULT_CONFIG, default_flow_style=False, sort_keys=False)
+        str,
+        yaml.dump(_serialize_enums(DEFAULT_CONFIG), default_flow_style=False, sort_keys=False),
     )
 
     if output_path:

@@ -9,11 +9,22 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import yaml
 
-SEVERITY_LEVELS = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+
+class Severity(Enum):
+    """Enumeration of finding severity levels."""
+
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+SEVERITY_LEVELS = [level.value for level in Severity]
 
 
 @dataclass
@@ -21,7 +32,7 @@ class Finding:
     """Represents a security finding in a workflow file"""
 
     rule_id: str
-    severity: str
+    severity: Union[str, Severity]
     message: str
     file_path: str
     line_number: Optional[int] = None
@@ -32,6 +43,8 @@ class Finding:
 
     def __post_init__(self) -> None:
         """Validate severity level"""
+        if isinstance(self.severity, Severity):
+            self.severity = self.severity.value
         if self.severity not in SEVERITY_LEVELS:
             raise ValueError(f"Invalid severity level: {self.severity}")
 
@@ -56,7 +69,7 @@ class WorkflowScanner:
         self,
         rule_id: str,
         rule_func: Callable[[Dict[str, Any], str], List[Finding]],
-        severity: str = "MEDIUM",
+        severity: Union[str, Severity] = Severity.MEDIUM,
         enabled: bool = True,
         description: Optional[str] = None,
     ) -> None:
@@ -78,6 +91,9 @@ class WorkflowScanner:
         if rule_id in severity_config:
             severity = severity_config[rule_id]
 
+        if isinstance(severity, Severity):
+            severity = severity.value
+
         self.rule_registry[rule_id] = {
             "func": rule_func,
             "enabled": enabled,
@@ -90,88 +106,88 @@ class WorkflowScanner:
         self.register_rule(
             "check_timeout",
             self.check_timeout,
-            severity="LOW",
+            severity=Severity.LOW,
             description="Ensures long jobs have timeout-minutes to prevent hanging",
         )
 
         self.register_rule(
             "check_shell",
             self.check_shell,
-            severity="LOW",
+            severity=Severity.LOW,
             description="Adds shell: bash for multiline run: blocks",
         )
 
         self.register_rule(
             "check_deprecated",
             self.check_deprecated,
-            severity="MEDIUM",
+            severity=Severity.MEDIUM,
             description="Warns on old actions like actions/checkout@v1",
         )
 
         self.register_rule(
             "check_runs_on",
             self.check_runs_on,
-            severity="MEDIUM",
+            severity=Severity.MEDIUM,
             description="Warns on ambiguous/self-hosted runners",
         )
 
         self.register_rule(
             "check_workflow_name",
             self.check_workflow_name,
-            severity="LOW",
+            severity=Severity.LOW,
             description="Encourages top-level name: for visibility",
         )
 
         self.register_rule(
             "check_continue_on_error",
             self.check_continue_on_error,
-            severity="MEDIUM",
+            severity=Severity.MEDIUM,
             description="Warns if continue-on-error: true is used",
         )
 
         self.register_rule(
             "check_tokens",
             self.check_tokens,
-            severity="HIGH",
+            severity=Severity.HIGH,
             description="Flags hardcoded access tokens",
         )
 
         self.register_rule(
             "check_reusable_inputs",
             self.check_reusable_inputs,
-            severity="MEDIUM",
+            severity=Severity.MEDIUM,
             description="Ensures reusable workflows define proper inputs",
         )
 
         self.register_rule(
             "check_ppe_vulnerabilities",
             self.check_ppe_vulnerabilities,
-            severity="CRITICAL",
+            severity=Severity.CRITICAL,
             description="Detects Poisoned Pipeline Execution vulnerabilities",
         )
 
         self.register_rule(
             "check_command_injection",
             self.check_command_injection,
-            severity="HIGH",
+            severity=Severity.HIGH,
             description="Finds potential command injection vulnerabilities",
         )
 
         self.register_rule(
             "check_env_injection",
             self.check_env_injection,
-            severity="HIGH",
+            severity=Severity.HIGH,
             description="Detects unsafe modifications to GITHUB_ENV and GITHUB_PATH",
         )
 
         self.register_rule(
             "check_inline_bash",
             self.check_shell,
-            severity="LOW",
+            severity=Severity.LOW,
             description="Alias for check_shell",
         )
 
-    def scan_file(self, file_path: str, severity_threshold: str = "LOW") -> List[Finding]:
+    def scan_file(self, file_path: str, severity_threshold: str = Severity.LOW.value) -> List[Finding]:
         """
         Scan a single workflow file for issues
 
@@ -211,7 +227,7 @@ class WorkflowScanner:
                     findings.append(
                         Finding(
                             rule_id=f"rule_error.{rule_id}",
-                            severity="LOW",
+                            severity=Severity.LOW,
                             message=f"Error executing rule {rule_id}: {str(e)}",
                             file_path=file_path,
                             remediation="This is a bug in ghast. Please report it.",
@@ -222,7 +238,7 @@ class WorkflowScanner:
             findings.append(
                 Finding(
                     rule_id="file_error",
-                    severity="MEDIUM",
+                    severity=Severity.MEDIUM,
                     message=f"Error parsing workflow file: {str(e)}",
                     file_path=file_path,
                     remediation="Ensure the file is valid YAML.",
@@ -231,7 +247,7 @@ class WorkflowScanner:
 
         return findings
 
-    def scan_directory(self, directory_path: str, severity_threshold: str = "LOW") -> List[Finding]:
+    def scan_directory(self, directory_path: str, severity_threshold: str = Severity.LOW.value) -> List[Finding]:
         """
         Scan all workflow files in a directory
 
@@ -279,7 +295,7 @@ class WorkflowScanner:
                 findings.append(
                     Finding(
                         rule_id="check_timeout",
-                        severity="LOW",
+                        severity=Severity.LOW,
                         message=f"Job '{job_id}' has {step_count} steps but no timeout-minutes set",
                         file_path=file_path,
                         remediation=f"Add 'timeout-minutes: 15' to job '{job_id}'",
@@ -302,7 +318,7 @@ class WorkflowScanner:
                         findings.append(
                             Finding(
                                 rule_id="check_shell",
-                                severity="LOW",
+                                severity=Severity.LOW,
                                 message=f"Multiline script in job '{job_id}' step {step_idx+1} has no shell specified",
                                 file_path=file_path,
                                 remediation="Add 'shell: bash' to this step",
@@ -332,7 +348,7 @@ class WorkflowScanner:
                             findings.append(
                                 Finding(
                                     rule_id="check_deprecated",
-                                    severity="MEDIUM",
+                                    severity=Severity.MEDIUM,
                                     message=f"Deprecated action '{step['uses']}' in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
                                     remediation=recommendation,
@@ -354,7 +370,7 @@ class WorkflowScanner:
                 findings.append(
                     Finding(
                         rule_id="check_runs_on",
-                        severity="MEDIUM",
+                        severity=Severity.MEDIUM,
                         message=f"Missing 'runs-on' in job '{job_id}'",
                         file_path=file_path,
                         remediation="Specify a runner, e.g., 'runs-on: ubuntu-latest'",
@@ -365,7 +381,7 @@ class WorkflowScanner:
                 findings.append(
                     Finding(
                         rule_id="check_runs_on",
-                        severity="MEDIUM",
+                        severity=Severity.MEDIUM,
                         message=f"Job '{job_id}' uses self-hosted runner without labels",
                         file_path=file_path,
                         remediation="Add specific labels to self-hosted runners for better security isolation",
@@ -376,7 +392,7 @@ class WorkflowScanner:
                 findings.append(
                     Finding(
                         rule_id="check_runs_on",
-                        severity="LOW" if len(runs_on) > 1 else "MEDIUM",
+                        severity=Severity.LOW if len(runs_on) > 1 else Severity.MEDIUM,
                         message=f"Job '{job_id}' uses self-hosted runner",
                         file_path=file_path,
                         remediation="Consider using GitHub-hosted runners for better security isolation",
@@ -394,7 +410,7 @@ class WorkflowScanner:
             findings.append(
                 Finding(
                     rule_id="check_workflow_name",
-                    severity="LOW",
+                    severity=Severity.LOW,
                     message="Missing workflow name (top-level 'name' field)",
                     file_path=file_path,
                     remediation="Add a 'name:' field at the top level of the workflow",
@@ -414,7 +430,7 @@ class WorkflowScanner:
                 findings.append(
                     Finding(
                         rule_id="check_continue_on_error",
-                        severity="MEDIUM",
+                        severity=Severity.MEDIUM,
                         message=f"Job '{job_id}' has 'continue-on-error: true'",
                         file_path=file_path,
                         remediation="Remove 'continue-on-error' or set to false to ensure workflow fails on error",
@@ -428,7 +444,7 @@ class WorkflowScanner:
                     findings.append(
                         Finding(
                             rule_id="check_continue_on_error",
-                            severity="MEDIUM",
+                            severity=Severity.MEDIUM,
                             message=f"Step {step_idx+1} in job '{job_id}' has 'continue-on-error: true'",
                             file_path=file_path,
                             remediation="Remove 'continue-on-error' or set to false to ensure workflow fails on error",
@@ -480,7 +496,7 @@ class WorkflowScanner:
                 findings.append(
                     Finding(
                         rule_id="check_tokens",
-                        severity="HIGH",
+                        severity=Severity.HIGH,
                         message=f"{desc} found in workflow file",
                         file_path=file_path,
                         remediation="Replace hardcoded tokens with secrets, e.g., ${{ secrets.GITHUB_TOKEN }}",
@@ -492,7 +508,7 @@ class WorkflowScanner:
             findings.append(
                 Finding(
                     rule_id="check_tokens",
-                    severity="CRITICAL",
+                    severity=Severity.CRITICAL,
                     message="Dangerous 'toJson(secrets)' usage exposes all secrets",
                     file_path=file_path,
                     remediation="Never use toJson(secrets), reference individual secrets explicitly",
@@ -513,7 +529,7 @@ class WorkflowScanner:
                     findings.append(
                         Finding(
                             rule_id="check_reusable_inputs",
-                            severity="MEDIUM",
+                            severity=Severity.MEDIUM,
                             message=f"Reusable workflow in job '{job_id}' uses 'with' without defining 'inputs'",
                             file_path=file_path,
                             remediation="Define explicit 'inputs' for reusable workflows",
@@ -576,7 +592,7 @@ class WorkflowScanner:
                 findings.append(
                     Finding(
                         rule_id="check_ppe_vulnerabilities",
-                        severity="CRITICAL",
+                        severity=Severity.CRITICAL,
                         message=f"Poisoned Pipeline Execution vulnerability: job '{job_id}' uses {', '.join(high_risk_triggers_used)} trigger with checkout of untrusted code",
                         file_path=file_path,
                         remediation="Use pull_request trigger instead, or if pull_request_target is required, do not check out untrusted code or use dedicated jobs with restricted permissions.",
@@ -592,7 +608,7 @@ class WorkflowScanner:
                 findings.append(
                     Finding(
                         rule_id="check_ppe_vulnerabilities",
-                        severity="CRITICAL",
+                        severity=Severity.CRITICAL,
                         message=f"High-risk secret exposure: job '{job_id}' uses 'secrets: inherit' with {', '.join(high_risk_triggers_used)} trigger",
                         file_path=file_path,
                         remediation="Explicitly pass only required secrets to jobs, or use 'repositories' field to restrict which repos can use this workflow",
@@ -644,7 +660,7 @@ class WorkflowScanner:
                             findings.append(
                                 Finding(
                                     rule_id="check_command_injection",
-                                    severity="HIGH",
+                                    severity=Severity.HIGH,
                                     message=f"{desc} in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
                                     remediation="Never use untrusted input directly in shell commands. Use input validation or environment variables with proper quoting.",
@@ -657,7 +673,7 @@ class WorkflowScanner:
                             findings.append(
                                 Finding(
                                     rule_id="check_command_injection",
-                                    severity="MEDIUM",
+                                    severity=Severity.MEDIUM,
                                     message=f"Environment variable interpolation in shell command in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
                                     remediation="Be careful with environment variable interpolation in shell commands. Consider using proper quoting.",
@@ -701,7 +717,7 @@ class WorkflowScanner:
                             findings.append(
                                 Finding(
                                     rule_id="check_env_injection",
-                                    severity="HIGH",
+                                    severity=Severity.HIGH,
                                     message=f"Modification of GITHUB_ENV after checkout in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
                                     remediation="Avoid modifying GITHUB_ENV after checking out untrusted code, or move environment settings before checkout.",
@@ -717,7 +733,7 @@ class WorkflowScanner:
                             findings.append(
                                 Finding(
                                     rule_id="check_env_injection",
-                                    severity="HIGH",
+                                    severity=Severity.HIGH,
                                     message=f"Modification of GITHUB_PATH after checkout in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
                                     remediation="Avoid modifying GITHUB_PATH after checking out untrusted code, or move path modifications before checkout.",
@@ -732,7 +748,7 @@ def scan_repository(
     repo_path: str,
     strict: bool = False,
     config: Optional[Dict[str, Any]] = None,
-    severity_threshold: str = "LOW",
+    severity_threshold: str = Severity.LOW.value,
 ) -> Tuple[List[Finding], Dict[str, Any]]:
     """
     Scan a repository for workflow security issues
