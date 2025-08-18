@@ -7,19 +7,18 @@ allowing users to scan GitHub Actions workflows for security issues.
 
 import json
 import os
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 import click
 
 from .core import (
+    Finding,
     WorkflowScanner,
     fix_repository,
     generate_default_config,
     load_config,
     scan_repository,
-    Finding,
 )
 from .reports import generate_full_report, print_report, save_report
 from .rules import create_rule_engine
@@ -59,13 +58,12 @@ def _prepare_scan(
     if config:
         config_path = Path(config)
         if not config_path.exists():
-            click.echo(f"Error loading config file: {config} not found", err=True)
-            sys.exit(1)
+            raise click.ClickException(f"Error loading config file: {config} not found")
         try:
             config_data = load_config(config)
-        except Exception as e:  # pragma: no cover - defensive
-            click.echo(f"Error loading config file: {e}", err=True)
-            sys.exit(1)
+        except Exception as e:
+            raise click.ClickException(f"Error loading config file: {e}")
+
     else:
         config_data = config_default.copy() if config_default is not None else None
 
@@ -102,12 +100,10 @@ def _prepare_scan(
             click.echo(f"Scanning repository: {path}")
         workflow_dir = path / ".github" / "workflows"
         if not workflow_dir.exists():
-            click.echo(f"No workflows found at {workflow_dir}", err=True)
-            sys.exit(1)
+            raise click.ClickException(f"No workflows found at {workflow_dir}")
         files_to_scan = list(workflow_dir.glob("*.y*ml"))
         if not files_to_scan:
-            click.echo(f"No workflows found at {workflow_dir}", err=True)
-            sys.exit(1)
+            raise click.ClickException(f"No workflows found at {workflow_dir}")
 
         if echo and show_file_count:
             click.echo(f"Found {len(files_to_scan)} workflow file(s) to scan")
@@ -215,7 +211,7 @@ def scan(
     severe_findings = sum(sev_counts.get(lvl, 0) for lvl in SEVERITY_LEVELS[threshold_index:])
 
     if severe_findings > 0:
-        sys.exit(1)
+        raise click.ClickException("Severe findings detected")
 
 
 @cli.command()
@@ -252,15 +248,53 @@ def fix(
     if interactive and dry_run:
         click.echo("Note: --interactive has no effect in dry-run mode.")
 
-    findings, stats, config_data = _prepare_scan(
-        repo_path,
-        strict,
-        config,
-        severity_threshold,
-        disable=disable,
-        config_default={},
-        echo=True,
-    )
+    if config:
+        try:
+            config_data = load_config(config)
+        except Exception as e:
+            raise click.ClickException(f"Error loading config file: {e}")
+    else:
+        config_data = {}
+
+    if disable and len(disable) > 0:
+        for rule in disable:
+            config_data[rule] = False
+
+    path = Path(repo_path)
+
+    if path.is_file() and path.suffix in [".yml", ".yaml"]:
+        click.echo(f"Scanning single workflow file: {path}")
+        scanner = WorkflowScanner(strict=strict, config=config_data)
+        findings = scanner.scan_file(str(path), severity_threshold)
+
+        stats: Dict[str, Any] = {
+            "total_files": 1,
+            "total_findings": len(findings),
+            "severity_counts": {},
+            "rule_counts": {},
+            "fixable_findings": 0,
+        }
+
+        for finding in findings:
+            severity_counts = cast(Dict[str, int], stats["severity_counts"])
+            severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
+            rule_counts = cast(Dict[str, int], stats["rule_counts"])
+            rule_counts[finding.rule_id] = rule_counts.get(finding.rule_id, 0) + 1
+            if finding.can_fix:
+                stats["fixable_findings"] = cast(int, stats["fixable_findings"]) + 1
+
+    else:
+        click.echo(f"Scanning repository: {path}")
+        workflow_dir = path / ".github" / "workflows"
+        if not workflow_dir.exists():
+            raise click.ClickException(f"No workflows found at {workflow_dir}")
+
+        findings, stats = scan_repository(
+            repo_path=repo_path,
+            strict=strict,
+            config=config_data,
+            severity_threshold=severity_threshold,
+        )
 
     findings_by_file: Dict[str, List[Finding]] = {}
     for finding in findings:
@@ -339,8 +373,7 @@ def config(config: Optional[str], generate: bool, output: Optional[str]) -> None
                 f"[{rule_info['severity']}]"
             )
     except Exception as e:
-        click.echo(f"❌ Config validation failed: {e}", err=True)
-        sys.exit(1)
+        raise click.ClickException(f"❌ Config validation failed: {e}")
 
 
 @cli.command()
@@ -398,8 +431,9 @@ def analyze(file_path: str) -> None:
         workflow = load_yaml_file_with_positions(file_path)
 
         if not is_github_actions_workflow(workflow):
-            click.echo(f"⚠️ The file {file_path} does not appear to be a GitHub Actions workflow")
-            sys.exit(1)
+            raise click.ClickException(
+                f"⚠️ The file {file_path} does not appear to be a GitHub Actions workflow"
+            )
 
         rule_engine = create_rule_engine()
 
@@ -430,8 +464,7 @@ def analyze(file_path: str) -> None:
                 click.echo("")
 
     except Exception as e:
-        click.echo(f"Error analyzing file: {e}", err=True)
-        sys.exit(1)
+        raise click.ClickException(f"Error analyzing file: {e}")
 
 
 @cli.command()
