@@ -28,6 +28,96 @@ from .utils.version import __version__
 OUTPUT_FORMATS = ["text", "json", "sarif", "html"]
 
 
+def _prepare_scan(
+    repo_path: str,
+    strict: bool,
+    config: Optional[str],
+    severity_threshold: str,
+    *,
+    disable: Tuple[str, ...] = (),
+    config_default: Optional[Dict[str, Any]] = None,
+    show_file_count: bool = False,
+    echo: bool = True,
+) -> Tuple[List[Finding], Dict[str, Any], Optional[Dict[str, Any]]]:
+    """Load config, discover workflow files, and perform a scan.
+
+    Args:
+        repo_path: Path to the repository root or a specific workflow file.
+        strict: Enable strict mode.
+        config: Optional path to a YAML config file.
+        severity_threshold: Minimum severity level to report.
+        disable: Rules to disable before scanning.
+        config_default: Default config to use if no config file is provided.
+        show_file_count: Print the number of discovered workflow files.
+
+    Returns:
+        A tuple of (findings, stats, config_data) where config_data is the
+        configuration dictionary used for scanning.
+    """
+
+    if config:
+        config_path = Path(config)
+        if not config_path.exists():
+            raise click.ClickException(f"Error loading config file: {config} not found")
+        try:
+            config_data = load_config(config)
+        except Exception as e:
+            raise click.ClickException(f"Error loading config file: {e}")
+
+    else:
+        config_data = config_default.copy() if config_default is not None else None
+
+    if disable:
+        if config_data is None:
+            config_data = {}
+        for rule in disable:
+            config_data[rule] = False
+
+    path = Path(repo_path)
+    if path.is_file() and path.suffix in [".yml", ".yaml"]:
+        if echo:
+            click.echo(f"Scanning single workflow file: {path}")
+        scanner = WorkflowScanner(strict=strict, config=config_data)
+        findings = scanner.scan_file(str(path), severity_threshold)
+
+        from .core import SEVERITY_LEVELS
+
+        stats: Dict[str, Any] = {
+            "total_files": 1,
+            "total_findings": len(findings),
+            "severity_counts": {level: 0 for level in SEVERITY_LEVELS},
+            "rule_counts": {},
+            "fixable_findings": sum(1 for f in findings if f.can_fix),
+        }
+
+        for finding in findings:
+            severity_counts = cast(Dict[str, int], stats["severity_counts"])
+            severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
+            rule_counts = cast(Dict[str, int], stats["rule_counts"])
+            rule_counts[finding.rule_id] = rule_counts.get(finding.rule_id, 0) + 1
+    else:
+        if echo:
+            click.echo(f"Scanning repository: {path}")
+        workflow_dir = path / ".github" / "workflows"
+        if not workflow_dir.exists():
+            raise click.ClickException(f"No workflows found at {workflow_dir}")
+        files_to_scan = list(workflow_dir.glob("*.y*ml"))
+        if not files_to_scan:
+            raise click.ClickException(f"No workflows found at {workflow_dir}")
+
+        if echo and show_file_count:
+            click.echo(f"Found {len(files_to_scan)} workflow file(s) to scan")
+
+        findings, stats = scan_repository(
+            repo_path=repo_path,
+            strict=strict,
+            config=config_data,
+            severity_threshold=severity_threshold,
+        )
+
+    return findings, stats, config_data
+
+
 @click.group(invoke_without_command=True)
 @click.version_option(version=__version__)
 @click.pass_context
@@ -82,59 +172,16 @@ def scan(
     REPO_PATH: Path to the repository root or specific workflow file
     """
 
-    if config:
-        config_path = Path(config)
-        if not config_path.exists():
-            raise click.ClickException(f"Error loading config file: {config} not found")
-        try:
-            config_data = load_config(config)
-        except Exception as e:
-            raise click.ClickException(f"Error loading config file: {e}")
-    else:
-        config_data = None
-
     if no_color:
         os.environ["NO_COLOR"] = "1"
-
-    path = Path(repo_path)
-    if path.is_file() and path.suffix in [".yml", ".yaml"]:
-        if output == "text":
-            click.echo(f"Scanning single workflow file: {path}")
-        scanner = WorkflowScanner(strict=strict, config=config_data)
-        findings = scanner.scan_file(str(path), severity_threshold)
-        from .core import SEVERITY_LEVELS
-
-        stats: Dict[str, Any] = {
-            "total_files": 1,
-            "total_findings": len(findings),
-            "severity_counts": {level: 0 for level in SEVERITY_LEVELS},
-            "rule_counts": {},
-            "fixable_findings": sum(1 for f in findings if f.can_fix),
-        }
-        for finding in findings:
-            severity_counts = cast(Dict[str, int], stats["severity_counts"])
-            severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
-            rule_counts = cast(Dict[str, int], stats["rule_counts"])
-            rule_counts[finding.rule_id] = rule_counts.get(finding.rule_id, 0) + 1
-    else:
-        if output == "text":
-            click.echo(f"Scanning repository: {path}")
-        workflow_dir = path / ".github" / "workflows"
-        if not workflow_dir.exists():
-            raise click.ClickException(f"No workflows found at {workflow_dir}")
-        files_to_scan = list(workflow_dir.glob("*.y*ml"))
-        if not files_to_scan:
-            raise click.ClickException(f"No workflows found at {workflow_dir}")
-
-        if output == "text":
-            click.echo(f"Found {len(files_to_scan)} workflow file(s) to scan")
-
-        findings, stats = scan_repository(
-            repo_path=repo_path,
-            strict=strict,
-            config=config_data,
-            severity_threshold=severity_threshold,
-        )
+    findings, stats, _ = _prepare_scan(
+        repo_path,
+        strict,
+        config,
+        severity_threshold,
+        show_file_count=output == "text",
+        echo=output == "text",
+    )
 
     if output_file:
         save_report(
