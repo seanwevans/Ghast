@@ -143,32 +143,8 @@ def _serialize_enums(obj: Any) -> Any:
     return obj
 
 
-def validate_config(config: Dict[str, Any]) -> None:
-    """Validate configuration structure and values"""
-
-    allowed_sections = {
-        "severity_thresholds",
-        "auto_fix",
-        "report",
-        "default_timeout_minutes",
-        "default_action_versions",
-    }
-
-    # Check for unknown top-level keys in the provided config
-    for key in config.keys():
-        if key not in DEFAULT_CONFIG and key not in allowed_sections:
-            raise ConfigurationError(f"Unknown configuration option '{key}'")
-
-    for rule_key in DEFAULT_CONFIG.keys():
-        if (
-            rule_key != "severity_thresholds"
-            and rule_key != "auto_fix"
-            and rule_key != "report"
-            and rule_key != "default_timeout_minutes"
-            and rule_key != "default_action_versions"
-        ):
-            if rule_key in config and not isinstance(config[rule_key], bool):
-                raise ConfigurationError(f"Rule '{rule_key}' must be a boolean (true/false)")
+def _validate_severity_thresholds(config: Dict[str, Any]) -> None:
+    """Validate severity threshold configuration."""
 
     if "severity_thresholds" in config:
         if not isinstance(config["severity_thresholds"], dict):

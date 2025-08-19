@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ghast.core import WorkflowScanner, Finding, scan_repository, SEVERITY_LEVELS
 from ghast.core.scanner import Severity
+from ghast.utils import load_yaml_file_with_positions
 
 import pytest
 

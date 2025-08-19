@@ -14,6 +14,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import yaml
 
+from ..utils.yaml_handler import load_yaml_file_with_positions
+
 
 class Severity(Enum):
     """Enumeration of finding severity levels."""
