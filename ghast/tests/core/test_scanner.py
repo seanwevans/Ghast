@@ -103,6 +103,29 @@ def test_check_workflow_name(patchable_workflow_file):
     assert all(finding.rule_id == "check_workflow_name" for finding in findings)
 
 
+def test_check_tokens(token_workflow_file):
+    """Test check_tokens rule."""
+    scanner = WorkflowScanner()
+    workflow = load_yaml_file_with_positions(token_workflow_file)
+
+    findings = scanner.check_tokens(workflow, token_workflow_file)
+
+    assert len(findings) == 2
+    messages = [f.message for f in findings]
+    assert any("Hardcoded token" in m for m in messages)
+    assert any("toJson(secrets)" in m for m in messages)
+
+    steps = workflow["jobs"]["build"]["steps"]
+    token_line = steps[0]["__line__"]
+    tojson_line = steps[2]["__line__"]
+    token_finding = next(f for f in findings if "Hardcoded token" in f.message)
+    tojson_finding = next(f for f in findings if "toJson(secrets)" in f.message)
+    assert token_finding.line_number == token_line
+    assert tojson_finding.line_number == tojson_line
+    assert token_finding.column is not None
+    assert tojson_finding.column is not None
+
+
 def test_check_ppe_vulnerabilities(insecure_workflow_file):
     """Test check_ppe_vulnerabilities rule."""
     scanner = WorkflowScanner()

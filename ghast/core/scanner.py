@@ -489,64 +489,88 @@ class WorkflowScanner:
         """Check for hardcoded tokens"""
         findings: List[Finding] = []
 
-        workflow_str = str(workflow)
-
         token_patterns = [
-            (r'token\s*[:=]\s*["\']([A-Za-z0-9_\-]{20,})["\']', "Hardcoded token"),
+            (r'token\s*[:=]\s*["\']?[A-Za-z0-9_\-]{20,}["\']?', "Hardcoded token"),
             (
-                r'api[_\-]?key\s*[:=]\s*["\']([A-Za-z0-9_\-]{20,})["\']',
+                r'api[_\-]?key\s*[:=]\s*["\']?[A-Za-z0-9_\-]{20,}["\']?',
                 "Hardcoded API key",
             ),
             (
-                r'auth[_\-]?token\s*[:=]\s*["\']([A-Za-z0-9_\-]{20,})["\']',
+                r'auth[_\-]?token\s*[:=]\s*["\']?[A-Za-z0-9_\-]{20,}["\']?',
                 "Hardcoded auth token",
             ),
-            (r'password\s*[:=]\s*["\']([^"\']{8,})["\']', "Hardcoded password"),
-            (r'secret\s*[:=]\s*["\']([^"\']{8,})["\']', "Hardcoded secret"),
+            (r'password\s*[:=]\s*["\']?[^"\']{8,}["\']?', "Hardcoded password"),
+            (r'secret\s*[:=]\s*["\']?[^"\']{8,}["\']?', "Hardcoded secret"),
             (
-                r'access[_\-]?key\s*[:=]\s*["\']([A-Za-z0-9_\-]{16,})["\']',
+                r'access[_\-]?key\s*[:=]\s*["\']?[A-Za-z0-9_\-]{16,}["\']?',
                 "Hardcoded access key",
             ),
             (
-                r'gh[_\-]?token\s*[:=]\s*["\']([A-Za-z0-9_\-]{30,})["\']',
+                r'gh[_\-]?token\s*[:=]\s*["\']?[A-Za-z0-9_\-]{30,}["\']?',
                 "Hardcoded GitHub token",
             ),
         ]
 
-        for pattern, desc in token_patterns:
-            matches = re.finditer(pattern, workflow_str, re.IGNORECASE)
-            for match in matches:
-                context_before = workflow_str[max(0, match.start() - 30) : match.start()]
-                if (
-                    "secrets." in context_before
-                    or "${{" in context_before
-                    and "secrets." in context_before
-                ):
-                    continue
-
-                findings.append(
-                    Finding(
-                        rule_id="check_tokens",
-                        severity=Severity.HIGH,
-                        message=f"{desc} found in workflow file",
-                        file_path=file_path,
-                        remediation="Replace hardcoded tokens with secrets, e.g., ${{ secrets.GITHUB_TOKEN }}",
-                        can_fix=False,
+        def walk(node: Any, line: Optional[int] = None, column: Optional[int] = None) -> None:
+            if isinstance(node, dict):
+                current_line = node.get("__line__", line)
+                current_column = node.get("__column__", column)
+                for key, value in node.items():
+                    if key in ("__line__", "__column__"):
+                        continue
+                    value_line = getattr(value, "__line__", None)
+                    value_column = getattr(value, "__column__", None)
+                    walk(
+                        value,
+                        value_line if value_line is not None else current_line,
+                        value_column if value_column is not None else current_column,
                     )
-                )
+            elif isinstance(node, list):
+                current_line = getattr(node, "__line__", line)
+                current_column = getattr(node, "__column__", column)
+                for item in node:
+                    item_line = getattr(item, "__line__", None)
+                    item_column = getattr(item, "__column__", None)
+                    walk(
+                        item,
+                        item_line if item_line is not None else current_line,
+                        item_column if item_column is not None else current_column,
+                    )
+            else:
+                if not isinstance(node, str):
+                    return
+                if "toJson(secrets)" in node:
+                    findings.append(
+                        Finding(
+                            rule_id="check_tokens",
+                            severity=Severity.CRITICAL,
+                            message="Dangerous 'toJson(secrets)' usage exposes all secrets",
+                            file_path=file_path,
+                            line_number=line,
+                            column=column,
+                            remediation="Never use toJson(secrets), reference individual secrets explicitly",
+                            can_fix=False,
+                        )
+                    )
+                    return
+                if "secrets." in node or "${{" in node:
+                    return
+                for pattern, desc in token_patterns:
+                    for _ in re.finditer(pattern, node, re.IGNORECASE):
+                        findings.append(
+                            Finding(
+                                rule_id="check_tokens",
+                                severity=Severity.HIGH,
+                                message=f"{desc} found in workflow file",
+                                file_path=file_path,
+                                line_number=line,
+                                column=column,
+                                remediation="Replace hardcoded tokens with secrets, e.g., ${{ secrets.GITHUB_TOKEN }}",
+                                can_fix=False,
+                            )
+                        )
 
-        if "toJson(secrets)" in workflow_str:
-            findings.append(
-                Finding(
-                    rule_id="check_tokens",
-                    severity=Severity.CRITICAL,
-                    message="Dangerous 'toJson(secrets)' usage exposes all secrets",
-                    file_path=file_path,
-                    remediation="Never use toJson(secrets), reference individual secrets explicitly",
-                    can_fix=False,
-                )
-            )
-
+        walk(workflow)
         return findings
 
     def check_reusable_inputs(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
