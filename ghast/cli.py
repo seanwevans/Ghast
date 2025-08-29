@@ -5,6 +5,7 @@ This module provides the command-line interface for the ghast tool,
 allowing users to scan GitHub Actions workflows for security issues.
 """
 
+import copy
 import json
 import os
 from pathlib import Path
@@ -65,7 +66,7 @@ def _prepare_scan(
             raise click.ClickException(f"Error loading config file: {e}")
 
     else:
-        config_data = config_default.copy() if config_default is not None else None
+        config_data = copy.deepcopy(config_default) if config_default is not None else None
 
     if disable:
         if config_data is None:
