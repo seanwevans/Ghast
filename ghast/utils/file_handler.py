@@ -5,13 +5,13 @@ This module provides file handling utilities for ghast, including
 safe file operations, backup creation, and repository discovery.
 """
 
+import datetime
+import hashlib
 import os
 import shutil
 import tempfile
-from pathlib import Path
 from typing import List, Optional, Tuple
-import hashlib
-import datetime
+
 import click
 
 
@@ -50,7 +50,6 @@ def find_repository_root(start_path: str) -> Optional[str]:
 
         parent_path = os.path.dirname(current_path)
         if parent_path == current_path:
-
             return None
 
         current_path = parent_path
@@ -152,27 +151,26 @@ def safe_write_file(file_path: str, content: str, create_backup: bool = True) ->
     """
 
     backup_path = None
+    temp_path = None
+    dir_name = os.path.dirname(file_path)
     if create_backup and os.path.exists(file_path):
         backup_path = create_file_backup(file_path)
 
     try:
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
 
-        os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
+        fd, temp_path = tempfile.mkstemp(dir=dir_name)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
 
-        fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(file_path)))
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(content)
-
-            shutil.move(temp_path, file_path)
-            return True
-        finally:
-
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
+        shutil.move(temp_path, file_path)
+        return True
     except Exception as e:
         click.echo(f"Error writing file: {e}", err=True)
 
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)
         if backup_path and os.path.exists(backup_path):
             restore_from_backup(backup_path, file_path)
 
