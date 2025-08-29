@@ -104,6 +104,21 @@ jobs:
 
 
 @pytest.fixture
+def token_workflow_content():
+    """Workflow containing hardcoded and safe token usage."""
+    return """
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "token=12345678901234567890"
+      - run: echo "${{ secrets.MY_TOKEN }}"
+      - run: echo "${{ toJson(secrets) }}"
+"""
+
+
+@pytest.fixture
 def sample_workflow_file(temp_dir, sample_workflow_content):
     """Create a sample workflow file in a temporary directory."""
     workflows_dir = Path(temp_dir) / ".github" / "workflows"
@@ -135,6 +150,18 @@ def patchable_workflow_file(temp_dir, patchable_workflow_content):
 
     workflow_file = workflows_dir / "patchable.yml"
     workflow_file.write_text(patchable_workflow_content)
+
+    return str(workflow_file)
+
+
+@pytest.fixture
+def token_workflow_file(temp_dir, token_workflow_content):
+    """Create a workflow file containing token patterns."""
+    workflows_dir = Path(temp_dir) / ".github" / "workflows"
+    workflows_dir.mkdir(parents=True, exist_ok=True)
+
+    workflow_file = workflows_dir / "tokens.yml"
+    workflow_file.write_text(token_workflow_content)
 
     return str(workflow_file)
 
