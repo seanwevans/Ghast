@@ -6,7 +6,7 @@ This module provides the core rule engine that manages and runs security rules.
 
 from typing import Any, Dict, List, Optional
 
-from ..core import Finding
+from ..core import SEVERITY_LEVELS, Finding
 from .base import Rule
 from .best_practices import (
     ContinueOnErrorRule,
@@ -191,11 +191,10 @@ class RuleEngine:
             if not rule.enabled:
                 continue
 
-            if severity_threshold and severity_threshold != rule.severity:
-                from ..core import SEVERITY_LEVELS
-
-                if SEVERITY_LEVELS.index(rule.severity) < SEVERITY_LEVELS.index(severity_threshold):
-                    continue
+            if severity_threshold and (
+                SEVERITY_LEVELS.index(rule.severity) < SEVERITY_LEVELS.index(severity_threshold)
+            ):
+                continue
 
             try:
                 rule_findings = rule.check(workflow, file_path)
