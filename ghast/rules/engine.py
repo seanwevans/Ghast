@@ -256,6 +256,13 @@ class RuleEngine:
         fixes_applied = 0
         fixes_skipped = 0
 
+        auto_fix_enabled = self.config.get("auto_fix", {}).get("enabled", True)
+        if not auto_fix_enabled:
+            skipped_count = len(findings)
+            if skipped_count:
+                print("Auto-fix disabled; skipping rule engine fixes.")
+            return {"fixes_applied": 0, "fixes_skipped": skipped_count}
+
         findings_by_rule: Dict[str, List[Finding]] = {}
         for finding in findings:
             if not finding.can_fix:
