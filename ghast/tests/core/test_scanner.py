@@ -126,6 +126,22 @@ def test_check_tokens(token_workflow_file):
     assert tojson_finding.column is not None
 
 
+def test_check_permissions(patchable_workflow_file):
+    """Test check_permissions rule for missing declarations."""
+
+    scanner = WorkflowScanner()
+    workflow = load_yaml_file_with_positions(patchable_workflow_file)
+
+    findings = scanner.check_permissions(workflow, patchable_workflow_file)
+
+    assert len(findings) == 2
+    messages = {finding.message for finding in findings}
+    assert "Missing explicit permissions at workflow level" in messages
+    assert any("Missing explicit permissions in job" in message for message in messages)
+    assert all(finding.rule_id == "check_permissions" for finding in findings)
+    assert all(finding.severity == Severity.HIGH.value for finding in findings)
+
+
 def test_check_ppe_vulnerabilities(insecure_workflow_file):
     """Test check_ppe_vulnerabilities rule."""
     scanner = WorkflowScanner()
@@ -160,6 +176,7 @@ def test_scan_file(patchable_workflow_file):
     findings = scanner.scan_file(patchable_workflow_file)
 
     assert len(findings) > 0
+    assert any(f.rule_id == "check_permissions" for f in findings)
 
     for finding in findings:
         assert isinstance(finding, Finding)

@@ -155,6 +155,13 @@ class WorkflowScanner:
         )
 
         self.register_rule(
+            "check_permissions",
+            self.check_permissions,
+            severity=Severity.HIGH,
+            description="Requires explicit read-only permissions at workflow and job levels",
+        )
+
+        self.register_rule(
             "check_reusable_inputs",
             self.check_reusable_inputs,
             severity=Severity.MEDIUM,
@@ -309,6 +316,78 @@ class WorkflowScanner:
                         column=job.get("__column__"),
                         remediation=f"Add 'timeout-minutes: 15' to job '{job_id}'",
                         can_fix=True,
+                    )
+                )
+
+        return findings
+
+    def check_permissions(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
+        """Ensure workflows and jobs declare explicit, least-privilege permissions."""
+
+        findings: List[Finding] = []
+
+        remediation_workflow = (
+            "Add 'permissions: read-all' at the workflow level and specify write permissions only where needed"
+        )
+
+        workflow_permissions = workflow.get("permissions")
+        if workflow_permissions is None:
+            findings.append(
+                Finding(
+                    rule_id="check_permissions",
+                    severity=Severity.HIGH,
+                    message="Missing explicit permissions at workflow level",
+                    file_path=file_path,
+                    line_number=workflow.get("__line__"),
+                    column=workflow.get("__column__"),
+                    remediation=remediation_workflow,
+                    can_fix=True,
+                )
+            )
+        elif isinstance(workflow_permissions, str) and workflow_permissions.lower() == "write-all":
+            findings.append(
+                Finding(
+                    rule_id="check_permissions",
+                    severity=Severity.HIGH,
+                    message="Overly permissive workflow permissions (write-all)",
+                    file_path=file_path,
+                    line_number=workflow.get("__line__"),
+                    column=workflow.get("__column__"),
+                    remediation=remediation_workflow,
+                )
+            )
+
+        remediation_job_template = "Add 'permissions: read-all' to job '{job_id}' and elevate only what is required"
+
+        jobs = workflow.get("jobs", {})
+        for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__"):
+                continue
+
+            permissions = job.get("permissions")
+            if permissions is None:
+                findings.append(
+                    Finding(
+                        rule_id="check_permissions",
+                        severity=Severity.HIGH,
+                        message=f"Missing explicit permissions in job '{job_id}'",
+                        file_path=file_path,
+                        line_number=job.get("__line__"),
+                        column=job.get("__column__"),
+                        remediation=remediation_job_template.format(job_id=job_id),
+                        can_fix=True,
+                    )
+                )
+            elif isinstance(permissions, str) and permissions.lower() == "write-all":
+                findings.append(
+                    Finding(
+                        rule_id="check_permissions",
+                        severity=Severity.HIGH,
+                        message=f"Job '{job_id}' has overly permissive permissions (write-all)",
+                        file_path=file_path,
+                        line_number=job.get("__line__"),
+                        column=job.get("__column__"),
+                        remediation=remediation_job_template.format(job_id=job_id),
                     )
                 )
 
