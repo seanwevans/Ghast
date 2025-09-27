@@ -333,9 +333,7 @@ class WorkflowScanner:
 
         findings: List[Finding] = []
 
-        remediation_workflow = (
-            "Add 'permissions: read-all' at the workflow level and specify write permissions only where needed"
-        )
+        remediation_workflow = "Add 'permissions: read-all' at the workflow level and specify write permissions only where needed"
 
         workflow_permissions = workflow.get("permissions")
         if workflow_permissions is None:
@@ -364,7 +362,9 @@ class WorkflowScanner:
                 )
             )
 
-        remediation_job_template = "Add 'permissions: read-all' to job '{job_id}' and elevate only what is required"
+        remediation_job_template = (
+            "Add 'permissions: read-all' to job '{job_id}' and elevate only what is required"
+        )
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
