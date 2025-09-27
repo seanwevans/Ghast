@@ -91,6 +91,28 @@ def test_check_deprecated(patchable_workflow_file):
     assert all(f.line_number is not None and f.column is not None for f in findings)
 
 
+def test_check_action_pinning(action_pinning_workflow_file):
+    """Test check_action_pinning rule."""
+
+    scanner = WorkflowScanner()
+    workflow = load_yaml_file_with_positions(action_pinning_workflow_file)
+
+    findings = scanner.check_action_pinning(workflow, action_pinning_workflow_file)
+
+    assert len(findings) == 2
+    assert all(f.rule_id == "check_action_pinning" for f in findings)
+
+    messages = {finding.message for finding in findings}
+    assert any("unstable reference" in message for message in messages)
+    assert any("not pinned" in message for message in messages)
+    assert all(f.line_number is not None and f.column is not None for f in findings)
+
+    severities = {finding.severity for finding in findings}
+    assert Severity.HIGH.value in severities
+    assert Severity.MEDIUM.value in severities
+    assert all("0123456789abcdef0123456789abcdef01234567" not in message for message in messages)
+
+
 def test_check_workflow_name(patchable_workflow_file):
     """Test check_workflow_name rule."""
     scanner = WorkflowScanner()

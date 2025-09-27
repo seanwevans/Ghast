@@ -127,6 +127,13 @@ class WorkflowScanner:
         )
 
         self.register_rule(
+            "check_action_pinning",
+            self.check_action_pinning,
+            severity=Severity.MEDIUM,
+            description="Detects GitHub Actions steps that are not pinned to a commit SHA",
+        )
+
+        self.register_rule(
             "check_runs_on",
             self.check_runs_on,
             severity=Severity.MEDIUM,
@@ -451,6 +458,58 @@ class WorkflowScanner:
                                     can_fix=True,
                                 )
                             )
+
+        return findings
+
+    def check_action_pinning(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
+        """Check that actions are pinned to immutable commit SHAs."""
+
+        findings: List[Finding] = []
+        jobs = workflow.get("jobs", {})
+
+        for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__"):
+                continue
+
+            steps = job.get("steps", [])
+            for step_idx, step in enumerate(steps):
+                if not isinstance(step, dict) or "uses" not in step:
+                    continue
+
+                action = step["uses"]
+                line_number = step.get("__line__")
+                column_number = step.get("__column__")
+
+                if re.search(r"@(main|master)$", action):
+                    findings.append(
+                        Finding(
+                            rule_id="check_action_pinning",
+                            severity=Severity.HIGH,
+                            message=(
+                                f"Step {step_idx + 1} in job '{job_id}' uses unstable reference: {action}"
+                            ),
+                            file_path=file_path,
+                            line_number=line_number,
+                            column=column_number,
+                            remediation="Pin the action to a specific commit SHA",
+                            can_fix=False,
+                        )
+                    )
+                elif not re.search(r"@[0-9a-fA-F]{39,40}$", action):
+                    findings.append(
+                        Finding(
+                            rule_id="check_action_pinning",
+                            severity=Severity.MEDIUM,
+                            message=(
+                                f"Step {step_idx + 1} in job '{job_id}' is not pinned to a specific commit SHA: {action}"
+                            ),
+                            file_path=file_path,
+                            line_number=line_number,
+                            column=column_number,
+                            remediation="Pin the action to a specific commit SHA for better security",
+                            can_fix=False,
+                        )
+                    )
 
         return findings
 
