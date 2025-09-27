@@ -6,6 +6,7 @@ This module provides a unified interface for generating reports in different for
 
 import os
 import sys
+from html import escape
 from typing import Any, Dict, List, Optional
 
 from ..core import Finding
@@ -191,6 +192,7 @@ def generate_html_report(
     text_report = format_console_report(
         findings, stats, verbose=True, show_remediation=True, show_summary=True
     )
+    escaped_text_report = escape(text_report)
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -298,7 +300,7 @@ def generate_html_report(
     </table>
 
     <h2>Findings</h2>
-    <pre>{text_report.replace('<', '&lt;').replace('>', '&gt;')}</pre>
+    <pre>{escaped_text_report}</pre>
 </body>
 </html>
 """

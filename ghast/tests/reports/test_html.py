@@ -27,3 +27,25 @@ def test_generate_html_report_basic():
     assert "<html>" in html
     assert "<body>" in html
     assert '<table class="summary-table">' in html
+
+
+def test_generate_html_report_escapes_ampersand():
+    """Ensure ampersands in the text report are escaped in HTML output."""
+    findings = [
+        Finding(
+            rule_id="amp_rule",
+            severity="LOW",
+            message="Value A & Value B",
+            file_path="workflow.yml",
+        )
+    ]
+    stats = {
+        "total_files": 1,
+        "total_findings": 1,
+        "severity_counts": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 1},
+    }
+
+    html = generate_html_report(findings, stats)
+
+    assert "Value A &amp; Value B" in html
+    assert "Value A & Value B" not in html
