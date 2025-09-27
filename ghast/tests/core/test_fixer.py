@@ -234,6 +234,46 @@ def test_fix_workflow_file_disabled_rules(patchable_workflow_file, temp_dir):
     assert "timeout-minutes" not in fixed_workflow["jobs"]["build"]
 
 
+def test_fix_workflow_file_auto_fix_disabled(patchable_workflow_file, temp_dir, capsys):
+    """Ensure no fixes are applied when global auto-fix is disabled."""
+
+    test_file = os.path.join(temp_dir, "auto_fix_disabled.yml")
+    shutil.copy2(patchable_workflow_file, test_file)
+
+    findings = [
+        Finding(
+            rule_id="check_timeout",
+            severity="LOW",
+            message="Job 'build' has 6 steps but no timeout-minutes set",
+            file_path=test_file,
+            remediation="Add 'timeout-minutes: 15' to job 'build'",
+            can_fix=True,
+        ),
+        Finding(
+            rule_id="check_workflow_name",
+            severity="LOW",
+            message="Missing workflow name (top-level 'name' field)",
+            file_path=test_file,
+            remediation="Add a 'name:' field at the top level of the workflow",
+            can_fix=True,
+        ),
+    ]
+
+    config = {"auto_fix": {"enabled": False}}
+
+    fixes_applied, fixes_skipped = fix_workflow_file(test_file, findings, config)
+
+    assert fixes_applied == 0
+    assert fixes_skipped == len(findings)
+
+    captured = capsys.readouterr()
+    assert "Auto-fix disabled" in captured.out
+    assert not os.path.exists(f"{test_file}.bak")
+
+    with open(test_file, "r") as fixed, open(patchable_workflow_file, "r") as original:
+        assert fixed.read() == original.read()
+
+
 def test_fix_repository(mock_repo):
     """Test fixing an entire repository."""
 

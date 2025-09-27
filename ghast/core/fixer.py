@@ -89,6 +89,13 @@ class Fixer:
         self.fixes_applied = 0
         self.fixes_skipped = 0
 
+        auto_fix_enabled = self.config.get("auto_fix", {}).get("enabled", True)
+        if not auto_fix_enabled:
+            skipped_count = len(findings)
+            if skipped_count:
+                click.echo(f"Auto-fix disabled; skipping fixes for {file_path}")
+            return 0, skipped_count
+
         findings_by_rule: Dict[str, List[Finding]] = {}
         for finding in findings:
             if finding.can_fix and finding.rule_id in self.fixers:

@@ -270,6 +270,53 @@ def test_fix_findings_with_disabled_rules():
     assert rule2.fixed is True
 
 
+def test_fix_findings_auto_fix_disabled(capsys):
+    """Ensure global auto-fix toggle prevents rule engine fixes."""
+
+    config = {"auto_fix": {"enabled": False}}
+    engine = RuleEngine(config=config)
+
+    rule1 = MockRule("test_rule1", can_fix=True)
+    rule2 = MockRule("test_rule2", can_fix=True)
+
+    engine.register_rule(rule1)
+    engine.register_rule(rule2)
+
+    findings = [
+        Finding(
+            rule_id="test_rule1",
+            severity="LOW",
+            message="Test finding 1",
+            file_path="test.yml",
+            can_fix=True,
+        ),
+        Finding(
+            rule_id="test_rule2",
+            severity="MEDIUM",
+            message="Test finding 2",
+            file_path="test.yml",
+            can_fix=True,
+        ),
+        Finding(
+            rule_id="test_rule3",
+            severity="MEDIUM",
+            message="Non-fixable finding",
+            file_path="test.yml",
+            can_fix=False,
+        ),
+    ]
+
+    result = engine.fix_findings({}, findings)
+
+    assert result["fixes_applied"] == 0
+    assert result["fixes_skipped"] == len(findings)
+    assert not rule1.fixed
+    assert not rule2.fixed
+
+    captured = capsys.readouterr()
+    assert "Auto-fix disabled" in captured.out
+
+
 def test_rule_inheritance():
     """Test rule inheritance and method overriding."""
 
