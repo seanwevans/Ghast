@@ -7,6 +7,7 @@ This module provides the core rule engine that manages and runs security rules.
 from typing import Any, Dict, List, Optional
 
 from ..core import SEVERITY_LEVELS, Finding
+from ..core.scanner import Severity
 from .base import Rule
 from .best_practices import (
     ContinueOnErrorRule,
@@ -84,13 +85,20 @@ class RuleEngine:
 
             severity_thresholds = self.config.get("severity_thresholds", {})
             if rule_id in severity_thresholds:
-                rule.severity = severity_thresholds[rule_id]
+                value = severity_thresholds[rule_id]
             elif rule_id_with_check in severity_thresholds:
-                rule.severity = severity_thresholds[rule_id_with_check]
+                value = severity_thresholds[rule_id_with_check]
             elif short_rule_id in severity_thresholds:
-                rule.severity = severity_thresholds[short_rule_id]
+                value = severity_thresholds[short_rule_id]
             elif short_with_check in severity_thresholds:
-                rule.severity = severity_thresholds[short_with_check]
+                value = severity_thresholds[short_with_check]
+            else:
+                value = None
+
+            if value is not None:
+                if isinstance(value, Severity):
+                    value = value.value
+                rule.severity = value
 
     def register_rule(self, rule: Rule) -> None:
         """
@@ -123,18 +131,22 @@ class RuleEngine:
         Returns:
             List of rule information dictionaries
         """
-        return [
-            {
-                "id": rule.rule_id,
-                "enabled": rule.enabled,
-                "severity": rule.severity,
-                "description": rule.description,
-                "remediation": rule.remediation,
-                "category": rule.category,
-                "can_fix": rule.can_fix,
-            }
-            for rule in self.rules
-        ]
+        rule_info_list = []
+        for rule in self.rules:
+            severity = rule.severity.value if isinstance(rule.severity, Severity) else rule.severity
+            rule_info_list.append(
+                {
+                    "id": rule.rule_id,
+                    "enabled": rule.enabled,
+                    "severity": severity,
+                    "description": rule.description,
+                    "remediation": rule.remediation,
+                    "category": rule.category,
+                    "can_fix": rule.can_fix,
+                }
+            )
+
+        return rule_info_list
 
     def enable_rule(self, rule_id: str) -> bool:
         """
@@ -187,12 +199,24 @@ class RuleEngine:
         """
         findings = []
 
+        normalized_threshold: Optional[str] = None
+        if severity_threshold is not None:
+            normalized_threshold = (
+                severity_threshold.value
+                if isinstance(severity_threshold, Severity)
+                else severity_threshold
+            )
+
         for rule in self.rules:
             if not rule.enabled:
                 continue
 
-            if severity_threshold and (
-                SEVERITY_LEVELS.index(rule.severity) < SEVERITY_LEVELS.index(severity_threshold)
+            rule_severity = (
+                rule.severity.value if isinstance(rule.severity, Severity) else rule.severity
+            )
+
+            if normalized_threshold and (
+                SEVERITY_LEVELS.index(rule_severity) < SEVERITY_LEVELS.index(normalized_threshold)
             ):
                 continue
 

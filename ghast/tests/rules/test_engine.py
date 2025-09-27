@@ -8,6 +8,7 @@ from typing import List
 
 from ghast.rules import RuleEngine, Rule, create_rule_engine
 from ghast.core import Finding
+from ghast.core.scanner import Severity
 
 
 class MockRule(Rule):
@@ -151,6 +152,31 @@ def test_scan_workflow_with_severity_threshold(patchable_workflow_file):
 
     findings = engine.scan_workflow(workflow, patchable_workflow_file, severity_threshold="MEDIUM")
 
+    assert all(finding.severity != "LOW" for finding in findings)
+
+
+def test_scan_workflow_with_enum_severity_config(patchable_workflow_file):
+    """Ensure enum severities in config are handled and filtering uses strings."""
+
+    with open(patchable_workflow_file, "r") as f:
+        workflow = yaml.safe_load(f)
+
+    config = {"severity_thresholds": {"check_timeout": Severity.HIGH}}
+
+    engine = RuleEngine(config=config)
+
+    timeout_rule = engine.get_rule_by_id("timeout")
+    assert timeout_rule is not None
+    assert timeout_rule.severity == "HIGH"
+
+    findings = engine.scan_workflow(
+        workflow,
+        patchable_workflow_file,
+        severity_threshold="MEDIUM",
+    )
+
+    assert findings
+    assert all(isinstance(finding.severity, str) for finding in findings)
     assert all(finding.severity != "LOW" for finding in findings)
 
 
