@@ -104,6 +104,26 @@ jobs:
 
 
 @pytest.fixture
+def action_pinning_workflow_content():
+    """Workflow containing a mix of pinned and unpinned actions."""
+
+    return """
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Unstable reference
+        uses: actions/checkout@main
+      - name: Tagged release
+        uses: actions/setup-python@v4
+      - name: Pinned checkout
+        uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
+"""
+
+
+@pytest.fixture
 def token_workflow_content():
     """Workflow containing hardcoded and safe token usage."""
     return """
@@ -150,6 +170,19 @@ def patchable_workflow_file(temp_dir, patchable_workflow_content):
 
     workflow_file = workflows_dir / "patchable.yml"
     workflow_file.write_text(patchable_workflow_content)
+
+    return str(workflow_file)
+
+
+@pytest.fixture
+def action_pinning_workflow_file(temp_dir, action_pinning_workflow_content):
+    """Create a workflow file containing pinned and unpinned actions."""
+
+    workflows_dir = Path(temp_dir) / ".github" / "workflows"
+    workflows_dir.mkdir(parents=True, exist_ok=True)
+
+    workflow_file = workflows_dir / "action-pinning.yml"
+    workflow_file.write_text(action_pinning_workflow_content)
 
     return str(workflow_file)
 
