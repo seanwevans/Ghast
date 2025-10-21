@@ -1,4 +1,5 @@
 # ghast ☠️ GitHub Actions Security Tool
+<img width="256" alt="Friendly Ghost on Purple Background" src="https://github.com/user-attachments/assets/4c517c50-8688-4bcb-9399-c17e4a8f375e" />
 
 **ghast** is a security auditing and remediation tool for GitHub Actions workflows. It detects misconfigurations, security vulnerabilities, and anti-patterns in your workflows based on industry best practices.
 
