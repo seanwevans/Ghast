@@ -11,6 +11,18 @@ from ghast.utils import load_yaml_file_with_positions
 import pytest
 
 
+def _write_temp_workflow(temp_dir: str, filename: str, content: str) -> Path:
+    """Helper to write a workflow file inside the temporary directory."""
+
+    workflows_dir = Path(temp_dir) / ".github" / "workflows"
+    workflows_dir.mkdir(parents=True, exist_ok=True)
+
+    workflow_path = workflows_dir / filename
+    workflow_path.write_text(content)
+
+    return workflow_path
+
+
 def test_scanner_initialization():
     """Test scanner initialization with default and custom configs."""
 
@@ -162,6 +174,102 @@ def test_check_permissions(patchable_workflow_file):
     assert any("Missing explicit permissions in job" in message for message in messages)
     assert all(finding.rule_id == "check_permissions" for finding in findings)
     assert all(finding.severity == Severity.HIGH.value for finding in findings)
+
+
+def test_check_reusable_inputs_with_declared_inputs(temp_dir):
+    """Reusable workflows with declared inputs should not produce findings."""
+
+    workflow_path = _write_temp_workflow(
+        temp_dir,
+        "reusable-valid.yml",
+        """on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ inputs.environment }}"
+""",
+    )
+
+    scanner = WorkflowScanner()
+    workflow = load_yaml_file_with_positions(str(workflow_path))
+
+    findings = scanner.check_reusable_inputs(workflow, str(workflow_path))
+
+    assert findings == []
+
+
+def test_check_reusable_inputs_missing_mapping(temp_dir):
+    """Referencing inputs without declaring the inputs mapping should be flagged."""
+
+    workflow_path = _write_temp_workflow(
+        temp_dir,
+        "reusable-missing-mapping.yml",
+        """on:
+  workflow_call:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ inputs.environment }}"
+""",
+    )
+
+    scanner = WorkflowScanner()
+    workflow = load_yaml_file_with_positions(str(workflow_path))
+
+    findings = scanner.check_reusable_inputs(workflow, str(workflow_path))
+
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding.rule_id == "check_reusable_inputs"
+    assert finding.severity == Severity.MEDIUM.value
+    assert "not defined" in finding.message
+    assert "environment" in finding.message
+
+    steps = workflow["jobs"]["build"]["steps"]
+    step_line = steps[0]["__line__"]
+    assert finding.line_number == step_line
+    assert finding.column is not None
+
+
+def test_check_reusable_inputs_missing_declaration(temp_dir):
+    """Inputs referenced without a corresponding declaration should be reported."""
+
+    workflow_path = _write_temp_workflow(
+        temp_dir,
+        "reusable-missing-declaration.yml",
+        """on:
+  workflow_call:
+    inputs:
+      existing:
+        required: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ inputs.missing }}"
+""",
+    )
+
+    scanner = WorkflowScanner()
+    workflow = load_yaml_file_with_positions(str(workflow_path))
+
+    findings = scanner.check_reusable_inputs(workflow, str(workflow_path))
+
+    assert len(findings) == 1
+    finding = findings[0]
+    assert "not declared" in finding.message
+    assert "missing" in finding.message
+    assert finding.rule_id == "check_reusable_inputs"
+
+    steps = workflow["jobs"]["build"]["steps"]
+    assert finding.line_number == steps[0]["__line__"]
+    assert finding.column is not None
 
 
 def test_check_ppe_vulnerabilities(insecure_workflow_file):
