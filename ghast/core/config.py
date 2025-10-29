@@ -265,15 +265,29 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
                 try:
                     with open(path, "r", encoding="utf-8") as f:
                         user_config = yaml.safe_load(f)
+                except OSError:
+                    # Skip unreadable files and continue searching
+                    continue
+                except yaml.YAMLError as e:
+                    raise ConfigurationError(
+                        f"Error parsing YAML configuration in {path}: {e}"
+                    ) from e
 
-                    if user_config:
+                if not user_config:
+                    # Empty files are ignored so discovery can continue
+                    continue
 
-                        validate_config(user_config)
-                        config = merge_configs(config, user_config)
-                        break
-                except Exception:
+                try:
+                    validate_config(user_config)
+                except ConfigurationError:
+                    raise
+                except Exception as e:
+                    raise ConfigurationError(
+                        f"Error validating configuration in {path}: {e}"
+                    ) from e
 
-                    pass
+                config = merge_configs(config, user_config)
+                break
 
     return config
 

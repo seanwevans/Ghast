@@ -81,6 +81,32 @@ def test_load_config_invalid_yaml(temp_dir):
         load_config(config_path)
 
 
+def test_auto_discovery_invalid_yaml_raises(monkeypatch, temp_dir):
+    """Ensure auto-discovered configs with invalid YAML raise an error."""
+
+    config_path = os.path.join(temp_dir, "ghast.yml")
+    with open(config_path, "w") as f:
+        f.write("invalid: [yaml")
+
+    monkeypatch.setattr("ghast.core.config.get_config_paths", lambda: [config_path])
+
+    with pytest.raises(ConfigurationError):
+        load_config()
+
+
+def test_auto_discovery_invalid_config_raises(monkeypatch, temp_dir):
+    """Ensure auto-discovered configs with validation errors are not ignored."""
+
+    config_path = os.path.join(temp_dir, "ghast.yml")
+    with open(config_path, "w") as f:
+        yaml.dump({"unknown_option": True}, f)
+
+    monkeypatch.setattr("ghast.core.config.get_config_paths", lambda: [config_path])
+
+    with pytest.raises(ConfigurationError):
+        load_config()
+
+
 def test_validate_config_valid():
     """Test config validation with valid config."""
     valid_config = {
