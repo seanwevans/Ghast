@@ -229,6 +229,17 @@ def test_validate_defaults_helper():
         _validate_defaults(invalid)
 
 
+def test_load_config_returns_deep_copy():
+    """Mutating a loaded config should not affect DEFAULT_CONFIG."""
+    config = load_config()
+
+    config["auto_fix"]["rules"]["check_timeout"] = False
+    config["severity_thresholds"]["check_timeout"] = Severity.CRITICAL
+
+    assert DEFAULT_CONFIG["auto_fix"]["rules"]["check_timeout"] is True
+    assert DEFAULT_CONFIG["severity_thresholds"]["check_timeout"] == Severity.LOW
+
+
 def test_generate_default_config_to_file(temp_dir):
     """Test generating default config to a file."""
     output_path = os.path.join(temp_dir, "output_config.yml")
