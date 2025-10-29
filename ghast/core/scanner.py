@@ -712,27 +712,102 @@ class WorkflowScanner:
         return findings
 
     def check_reusable_inputs(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
-        """Check for reusable workflows that don't properly define inputs"""
+        """Validate reusable workflow input declarations."""
+
         findings: List[Finding] = []
 
+        on_section = workflow.get("on", {})
+        if not isinstance(on_section, dict):
+            return findings
+
+        if "workflow_call" not in on_section:
+            return findings
+
+        workflow_call = on_section.get("workflow_call")
+
+        inputs_section = None
+        if isinstance(workflow_call, dict):
+            inputs_section = workflow_call.get("inputs")
+        defined_inputs: set[str] = set()
+
+        if isinstance(inputs_section, dict):
+            for input_name in inputs_section:
+                if input_name in ("__line__", "__column__"):
+                    continue
+                defined_inputs.add(str(input_name))
+        else:
+            inputs_section = None
+
         jobs = workflow.get("jobs", {})
+        if not isinstance(jobs, dict):
+            return findings
+
+        references: set[Tuple[str, Optional[int], Optional[int]]] = set()
+
+        def walk(node: Any, line: Optional[int], column: Optional[int]) -> None:
+            if isinstance(node, dict):
+                current_line = node.get("__line__", line)
+                current_column = node.get("__column__", column)
+                for key, value in node.items():
+                    if key in ("__line__", "__column__"):
+                        continue
+                    value_line = getattr(value, "__line__", None)
+                    value_column = getattr(value, "__column__", None)
+                    walk(
+                        value,
+                        value_line if value_line is not None else current_line,
+                        value_column if value_column is not None else current_column,
+                    )
+            elif isinstance(node, list):
+                current_line = getattr(node, "__line__", line)
+                current_column = getattr(node, "__column__", column)
+                for item in node:
+                    item_line = getattr(item, "__line__", None)
+                    item_column = getattr(item, "__column__", None)
+                    walk(
+                        item,
+                        item_line if item_line is not None else current_line,
+                        item_column if item_column is not None else current_column,
+                    )
+            elif isinstance(node, str):
+                if "${{" not in node or "inputs." not in node:
+                    return
+                for match in re.finditer(r"inputs\.([-A-Za-z0-9_]+)", node):
+                    references.add((match.group(1), line, column))
+
         for job_id, job in jobs.items():
             if job_id in ("__line__", "__column__"):
                 continue
-            if job.get("uses") and "with" in job:
-                if not job.get("inputs"):
-                    findings.append(
-                        Finding(
-                            rule_id="check_reusable_inputs",
-                            severity=Severity.MEDIUM,
-                            message=f"Reusable workflow in job '{job_id}' uses 'with' without defining 'inputs'",
-                            file_path=file_path,
-                            line_number=job.get("__line__"),
-                            column=job.get("__column__"),
-                            remediation="Define explicit 'inputs' for reusable workflows",
-                            can_fix=False,
-                        )
-                    )
+            if isinstance(job, dict):
+                walk(job, job.get("__line__"), job.get("__column__"))
+
+        if not references:
+            return findings
+
+        for input_name, line, column in sorted(references):
+            if inputs_section is None:
+                message = (
+                    f"Reusable workflow references input '{input_name}' but 'on.workflow_call.inputs' is not defined"
+                )
+            elif input_name not in defined_inputs:
+                message = (
+                    f"Reusable workflow references input '{input_name}' that is not declared in 'on.workflow_call.inputs'"
+                )
+            else:
+                continue
+
+            findings.append(
+                Finding(
+                    rule_id="check_reusable_inputs",
+                    severity=Severity.MEDIUM,
+                    message=message,
+                    file_path=file_path,
+                    line_number=line,
+                    column=column,
+                    remediation="Declare the input under on.workflow_call.inputs before referencing it",
+                    can_fix=False,
+                )
+            )
 
         return findings
 
