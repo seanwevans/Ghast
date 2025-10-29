@@ -242,6 +242,7 @@ class Fixer:
                     if "run" in step and "\n" in step["run"] and "shell" not in step:
                         step["shell"] = "bash"
                         fixed = True
+                        break
 
             return fixed
 
