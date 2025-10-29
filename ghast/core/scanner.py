@@ -786,13 +786,9 @@ class WorkflowScanner:
 
         for input_name, line, column in sorted(references):
             if inputs_section is None:
-                message = (
-                    f"Reusable workflow references input '{input_name}' but 'on.workflow_call.inputs' is not defined"
-                )
+                message = f"Reusable workflow references input '{input_name}' but 'on.workflow_call.inputs' is not defined"
             elif input_name not in defined_inputs:
-                message = (
-                    f"Reusable workflow references input '{input_name}' that is not declared in 'on.workflow_call.inputs'"
-                )
+                message = f"Reusable workflow references input '{input_name}' that is not declared in 'on.workflow_call.inputs'"
             else:
                 continue
 
