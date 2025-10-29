@@ -125,12 +125,13 @@ class Fixer:
 
                 for finding in rule_findings:
                     if self.interactive:
-                        if not click.confirm(
+                        prompt = (
                             f"\nFix {finding.rule_id} issue in {file_path}?\n"
                             f"{finding.message}\n"
-                            f"Proposed fix: {finding.remediation}",
-                            default=True,
-                        ):
+                            f"Proposed fix: {finding.remediation}\n"
+                        )
+
+                        if not click.confirm(prompt, default=True):
                             self.fixes_skipped += 1
                             continue
 
