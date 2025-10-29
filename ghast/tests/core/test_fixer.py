@@ -69,6 +69,31 @@ def test_fix_shell(patchable_workflow_file):
     assert workflow["jobs"]["build"]["steps"][1]["shell"] == "bash"
 
 
+def test_fix_shell_does_not_modify_other_steps(patchable_workflow_file):
+    """Ensure only the targeted step receives a shell value."""
+    with open(patchable_workflow_file, "r") as f:
+        workflow = yaml.safe_load(f)
+
+    steps = workflow["jobs"]["build"]["steps"]
+    assert "shell" not in steps[2]
+
+    finding = Finding(
+        rule_id="check_shell",
+        severity="LOW",
+        message="Multiline script in job 'build' step 2 has no shell specified",
+        file_path=patchable_workflow_file,
+        remediation="Add 'shell: bash' to this step",
+        can_fix=True,
+    )
+
+    fixer = Fixer({})
+    fixed = fixer.fix_shell(workflow, finding)
+
+    assert fixed is True
+    assert steps[1]["shell"] == "bash"
+    assert "shell" not in steps[2]
+
+
 def test_fix_deprecated_actions(patchable_workflow_file):
     """Test fixing deprecated actions."""
     with open(patchable_workflow_file, "r") as f:
