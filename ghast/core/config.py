@@ -4,6 +4,7 @@ config.py - Configuration management for ghast
 This module handles loading, validating, and managing configuration for the ghast tool.
 """
 
+import copy
 import os
 import yaml
 from typing import Any, Dict, Optional, List, cast
@@ -240,7 +241,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     Raises:
         ConfigurationError: If configuration file is invalid
     """
-    config = DEFAULT_CONFIG.copy()
+    config = copy.deepcopy(DEFAULT_CONFIG)
 
     if config_path:
         if not os.path.exists(config_path):
