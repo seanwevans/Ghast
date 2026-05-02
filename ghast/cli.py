@@ -75,7 +75,8 @@ def _prepare_scan(
         if config_data is None:
             config_data = {}
         for rule in disable:
-            config_data[rule] = False
+            rule_key = rule if rule.startswith("check_") else f"check_{rule}"
+            config_data[rule_key] = False
 
     path = Path(repo_path)
     if path.is_file() and path.suffix in [".yml", ".yaml"]:
@@ -183,6 +184,7 @@ def scan(
         strict,
         config,
         severity_threshold,
+        disable=disable,
         show_file_count=output == "text",
         echo=output == "text",
     )
