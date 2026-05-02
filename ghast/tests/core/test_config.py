@@ -160,6 +160,22 @@ def test_validate_config_unknown_key():
         validate_config(invalid_config)
 
 
+def test_validate_config_unknown_key_with_suggestion():
+    """Test unknown key error includes likely intended keys."""
+    invalid_config = {"check_timeot": True}
+
+    with pytest.raises(ConfigurationError, match=r"Did you mean: .*check_timeout"):
+        validate_config(invalid_config)
+
+
+def test_validate_config_unknown_key_without_suggestion():
+    """Test unknown key error still references sample config when no suggestions exist."""
+    invalid_config = {"zzzzzzzzzz": True}
+
+    with pytest.raises(ConfigurationError, match="examples/ghast.yml"):
+        validate_config(invalid_config)
+
+
 def test_merge_configs():
     """Test merging configurations."""
     base_config = {
