@@ -29,6 +29,18 @@ class Severity(Enum):
 SEVERITY_LEVELS = [level.value for level in Severity]
 
 
+def normalize_severity(value: Union[str, Severity]) -> str:
+    """Normalize severity values to canonical uppercase labels."""
+    if isinstance(value, Severity):
+        return value.value
+    if isinstance(value, str):
+        normalized = value.strip().upper()
+        if normalized in SEVERITY_LEVELS:
+            return normalized
+    valid = ", ".join(SEVERITY_LEVELS)
+    raise ValueError(f"Invalid severity level: {value}. Must be one of: {valid}")
+
+
 @dataclass
 class Finding:
     """Represents a security finding in a workflow file"""
@@ -45,10 +57,7 @@ class Finding:
 
     def __post_init__(self) -> None:
         """Validate severity level"""
-        if isinstance(self.severity, Severity):
-            self.severity = self.severity.value
-        if self.severity not in SEVERITY_LEVELS:
-            raise ValueError(f"Invalid severity level: {self.severity}")
+        self.severity = normalize_severity(self.severity)
 
 
 class WorkflowScanner:
@@ -111,6 +120,7 @@ class WorkflowScanner:
             List of findings
         """
         findings: List[Finding] = []
+        normalized_threshold = normalize_severity(severity_threshold)
 
         try:
             content = load_yaml_file_with_positions(file_path)

@@ -28,6 +28,16 @@ SEVERITY_COLOR_NAMES = {
 }
 
 
+def finding_sort_key(finding: Finding) -> tuple[int, str, str]:
+    """Build a deterministic sort key for findings."""
+    line_sentinel = sys.maxsize
+    return (
+        finding.line_number if finding.line_number is not None else line_sentinel,
+        finding.rule_id,
+        finding.message,
+    )
+
+
 def get_severity_symbol(severity: str) -> str:
     """Get a symbol representing the severity level"""
     if severity == "CRITICAL":
@@ -135,7 +145,8 @@ def format_findings_by_file(
         findings_by_file[finding.file_path].append(finding)
 
     output = ""
-    for file_path, file_findings in findings_by_file.items():
+    for file_path in sorted(findings_by_file):
+        file_findings = findings_by_file[file_path]
         output += f"\n{colorize('File: ' + file_path, 'bold')}\n"
 
         findings_by_severity: Dict[str, List[Finding]] = {}
@@ -147,7 +158,7 @@ def format_findings_by_file(
             if not level_findings:
                 continue
 
-            for finding in level_findings:
+            for finding in sorted(level_findings, key=finding_sort_key):
                 output += format_finding(finding, verbose, show_remediation) + "\n"
 
     return output
@@ -190,7 +201,7 @@ def format_findings_by_severity(
         )
         output += "=" * 50 + "\n"
 
-        for finding in level_findings:
+        for finding in sorted(level_findings, key=finding_sort_key):
             output += format_finding(finding, verbose, show_remediation) + "\n"
 
     return output

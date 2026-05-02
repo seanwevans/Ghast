@@ -156,6 +156,28 @@ def test_scan_workflow_with_severity_threshold(patchable_workflow_file):
     assert all(finding.severity != "LOW" for finding in findings)
 
 
+def test_scan_workflow_with_mixed_case_severity_threshold(patchable_workflow_file):
+    """Mixed-case severity thresholds should be normalized."""
+    with open(patchable_workflow_file, "r") as f:
+        workflow = yaml.safe_load(f)
+
+    engine = RuleEngine()
+    findings = engine.scan_workflow(workflow, patchable_workflow_file, severity_threshold="mEdIuM")
+
+    assert all(finding.severity != "LOW" for finding in findings)
+
+
+def test_scan_workflow_with_invalid_severity_threshold_raises(patchable_workflow_file):
+    """Invalid severity threshold values should raise an error."""
+    with open(patchable_workflow_file, "r") as f:
+        workflow = yaml.safe_load(f)
+
+    engine = RuleEngine()
+
+    with pytest.raises(ValueError):
+        engine.scan_workflow(workflow, patchable_workflow_file, severity_threshold="urgent")
+
+
 def test_scan_workflow_with_enum_severity_config(patchable_workflow_file):
     """Ensure enum severities in config are handled and filtering uses strings."""
 
