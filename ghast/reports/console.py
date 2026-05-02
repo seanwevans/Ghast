@@ -67,6 +67,7 @@ def colorize(text: str, color: str) -> str:
     if os.environ.get("NO_COLOR"):
         return text
 
+
     color_map = {
         "bright_red": "bright_red",
         "bright_green": "bright_green",
@@ -85,7 +86,12 @@ def colorize(text: str, color: str) -> str:
         return text
 
 
-def format_finding(finding: Finding, verbose: bool = False, show_remediation: bool = True) -> str:
+def format_finding(
+    finding: Finding,
+    verbose: bool = False,
+    show_remediation: bool = True,
+    use_color: bool = False,
+) -> str:
     """
     Format a single finding for console output
 
@@ -101,7 +107,7 @@ def format_finding(finding: Finding, verbose: bool = False, show_remediation: bo
     symbol = get_severity_symbol(severity)
 
     formatted = (
-        f"{symbol} {colorize(severity, SEVERITY_COLOR_NAMES.get(severity, 'reset'))}: "
+        f"{symbol} {(colorize(severity, SEVERITY_COLOR_NAMES.get(severity, 'reset')) if use_color else severity)}: "
         f"{finding.message}\n"
     )
     formatted += f"  Rule: {finding.rule_id}\n"
@@ -123,7 +129,10 @@ def format_finding(finding: Finding, verbose: bool = False, show_remediation: bo
 
 
 def format_findings_by_file(
-    findings: List[Finding], verbose: bool = False, show_remediation: bool = True
+    findings: List[Finding],
+    verbose: bool = False,
+    show_remediation: bool = True,
+    use_color: bool = False,
 ) -> str:
     """
     Format findings grouped by file
@@ -148,7 +157,7 @@ def format_findings_by_file(
     output = ""
     for file_path in sorted(findings_by_file):
         file_findings = findings_by_file[file_path]
-        output += f"\n{colorize('File: ' + file_path, 'bold')}\n"
+        output += f"\n{(colorize('File: ' + file_path, 'bold') if use_color else 'File: ' + file_path)}\n"
 
         findings_by_severity: Dict[str, List[Finding]] = {}
         for level in SEVERITY_LEVELS:
@@ -160,13 +169,16 @@ def format_findings_by_file(
                 continue
 
             for finding in sorted(level_findings, key=finding_sort_key):
-                output += format_finding(finding, verbose, show_remediation) + "\n"
+                output += format_finding(finding, verbose, show_remediation, use_color) + "\n"
 
     return output
 
 
 def format_findings_by_severity(
-    findings: List[Finding], verbose: bool = False, show_remediation: bool = True
+    findings: List[Finding],
+    verbose: bool = False,
+    show_remediation: bool = True,
+    use_color: bool = False,
 ) -> str:
     """
     Format findings grouped by severity
@@ -194,21 +206,25 @@ def format_findings_by_severity(
 
         output += (
             "\n"
-            + colorize(
-                f"{level} Severity Issues ({len(level_findings)})",
-                SEVERITY_COLOR_NAMES.get(level, "reset"),
+            + (
+                colorize(
+                    f"{level} Severity Issues ({len(level_findings)})",
+                    SEVERITY_COLOR_NAMES.get(level, "reset"),
+                )
+                if use_color
+                else f"{level} Severity Issues ({len(level_findings)})"
             )
             + "\n"
         )
         output += "=" * 50 + "\n"
 
         for finding in sorted(level_findings, key=finding_sort_key):
-            output += format_finding(finding, verbose, show_remediation) + "\n"
+            output += format_finding(finding, verbose, show_remediation, use_color) + "\n"
 
     return output
 
 
-def format_summary(stats: Dict[str, Any]) -> str:
+def format_summary(stats: Dict[str, Any], use_color: bool = False) -> str:
     """
     Format summary statistics
 
@@ -218,7 +234,7 @@ def format_summary(stats: Dict[str, Any]) -> str:
     Returns:
         Formatted summary as string
     """
-    output = f"\n{colorize('Scan Summary', 'bold')}\n"
+    output = f"\n{(colorize('Scan Summary', 'bold') if use_color else 'Scan Summary')}\n"
     output += "=" * 50 + "\n"
 
     output += f"Total files scanned: {stats.get('total_files', 0)}\n"
@@ -228,7 +244,7 @@ def format_summary(stats: Dict[str, Any]) -> str:
     for level in SEVERITY_LEVELS:
         count = stats.get("severity_counts", {}).get(level, 0)
         if count > 0:
-            output += f"  {colorize(level, SEVERITY_COLOR_NAMES.get(level, 'reset'))}: {count}\n"
+            output += f"  {(colorize(level, SEVERITY_COLOR_NAMES.get(level, 'reset')) if use_color else level)}: {count}\n"
 
     if stats.get("rule_counts"):
         output += "\nIssues by rule:\n"
@@ -258,6 +274,7 @@ def format_console_report(
     group_by_severity: bool = False,
     show_remediation: bool = True,
     show_summary: bool = True,
+    use_color: bool = False,
 ) -> str:
     """
     Generate a complete console report
@@ -276,12 +293,12 @@ def format_console_report(
     output = ""
 
     if group_by_severity:
-        output += format_findings_by_severity(findings, verbose, show_remediation)
+        output += format_findings_by_severity(findings, verbose, show_remediation, use_color)
     else:
-        output += format_findings_by_file(findings, verbose, show_remediation)
+        output += format_findings_by_file(findings, verbose, show_remediation, use_color)
 
     if show_summary:
-        output += format_summary(stats)
+        output += format_summary(stats, use_color)
 
     return output
 
@@ -293,6 +310,7 @@ def print_console_report(
     group_by_severity: bool = False,
     show_remediation: bool = True,
     show_summary: bool = True,
+    use_color: bool = False,
     output_stream: Optional[TextIO] = None,
 ) -> None:
     """
