@@ -627,7 +627,7 @@ class WorkflowScanner:
 
         if isinstance(inputs_section, dict):
             for input_name in inputs_section:
-                                defined_inputs.add(str(input_name))
+                defined_inputs.add(str(input_name))
         else:
             inputs_section = None
 

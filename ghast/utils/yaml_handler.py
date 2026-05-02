@@ -20,7 +20,9 @@ _positions_by_root_id: Dict[int, Dict[int, Position]] = {}
 _paths_by_root_id: Dict[int, Dict[tuple[Union[str, int], ...], Position]] = {}
 
 
-def _build_position_indexes(node: Node, obj: Any) -> tuple[Dict[int, Position], Dict[tuple[Union[str, int], ...], Position]]:
+def _build_position_indexes(
+    node: Node, obj: Any
+) -> tuple[Dict[int, Position], Dict[tuple[Union[str, int], ...], Position]]:
     by_id: Dict[int, Position] = {}
     by_path: Dict[tuple[Union[str, int], ...], Position] = {}
 
@@ -59,6 +61,7 @@ def get_position(node_or_path: Any, root: Optional[Any] = None) -> Position:
         if found is not None:
             return found
     return (None, None)
+
 
 # PyYAML follows the YAML 1.1 specification which treats certain plain
 # strings such as ``on``, ``off``, ``yes`` and ``no`` as booleans.  In the
