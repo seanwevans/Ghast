@@ -108,7 +108,7 @@ def create_timestamped_backup(file_path: str, suffix: str = ".bak") -> str:
     Raises:
         FileNotFoundError: If the source file doesn't exist
     """
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
     stem = os.path.splitext(file_path)[0]  # drop .ext
     backup_path = f"{stem}.{timestamp}{suffix}"
     shutil.copy2(file_path, backup_path)
