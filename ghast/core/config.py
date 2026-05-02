@@ -9,7 +9,7 @@ import os
 import yaml
 from typing import Any, Dict, Optional, List, cast
 
-from .scanner import Severity
+from .scanner import Severity, normalize_severity
 
 DEFAULT_CONFIG = {
     "check_timeout": True,
@@ -153,8 +153,8 @@ def _validate_severity_thresholds(config: Dict[str, Any]) -> None:
 
         for rule, severity in list(config["severity_thresholds"].items()):
             try:
-                config["severity_thresholds"][rule] = Severity(severity)
-            except Exception:
+                config["severity_thresholds"][rule] = normalize_severity(severity)
+            except ValueError:
                 valid = ", ".join(level.value for level in Severity)
                 raise ConfigurationError(
                     f"Invalid severity '{severity}' for rule '{rule}'. Must be one of: {valid}"
