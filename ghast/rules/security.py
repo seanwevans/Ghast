@@ -54,8 +54,8 @@ class PermissionsRule(WorkflowRule):
                 self.create_finding(
                     message="Missing explicit permissions at workflow level",
                     file_path=file_path,
-                    line_number=workflow.get("__line__"),
-                    column=workflow.get("__column__"),
+                    line_number=workflow.get("__line__") or 1,
+                    column=workflow.get("__column__") or 1,
                     can_fix=True,
                 )
             )
@@ -64,8 +64,8 @@ class PermissionsRule(WorkflowRule):
                 self.create_finding(
                     message="Overly permissive workflow permissions (write-all)",
                     file_path=file_path,
-                    line_number=workflow.get("__line__"),
-                    column=workflow.get("__column__"),
+                    line_number=workflow.get("__line__") or 1,
+                    column=workflow.get("__column__") or 1,
                 )
             )
 
@@ -84,8 +84,8 @@ class PermissionsRule(WorkflowRule):
                 self.create_finding(
                     message=f"Missing explicit permissions in job '{job_id}'",
                     file_path=file_path,
-                    line_number=job.get("__line__"),
-                    column=job.get("__column__"),
+                    line_number=job.get("__line__") or 1,
+                    column=job.get("__column__") or 1,
                     can_fix=True,
                 )
             )
@@ -94,8 +94,8 @@ class PermissionsRule(WorkflowRule):
                 self.create_finding(
                     message=f"Job '{job_id}' has overly permissive permissions (write-all)",
                     file_path=file_path,
-                    line_number=job.get("__line__"),
-                    column=job.get("__column__"),
+                    line_number=job.get("__line__") or 1,
+                    column=job.get("__column__") or 1,
                 )
             )
 
