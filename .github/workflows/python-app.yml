@@ -12,12 +12,12 @@ on:
       - '**.md'
       - 'docs/**'
 
-permissions:
-  contents: read
+permissions: read-all
 
 jobs:
   test:
     name: Test Python ${{ matrix.python-version }}
+    permissions: read-all
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -62,7 +62,7 @@ jobs:
       uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
       with:
         fetch-depth: 0
-        persist-credentials: true
+        persist-credentials: false
 
     - name: Set up Python
       uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -89,7 +89,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "chore: format code with black"
-          git push
+          git push "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}
         fi
       shell: bash
 
@@ -105,6 +105,7 @@ jobs:
 
   self-check:
     name: Self-check with Ghast
+    permissions: read-all
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [test]
