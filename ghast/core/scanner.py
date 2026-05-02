@@ -135,7 +135,7 @@ class WorkflowScanner:
             engine_findings = self.rule_engine.scan_workflow(
                 content,
                 file_path,
-                severity_threshold=severity_threshold,
+                severity_threshold=normalized_threshold,
             )
             normalized_findings = self._normalize_rule_ids(engine_findings)
             findings.extend(
@@ -143,7 +143,7 @@ class WorkflowScanner:
                     finding
                     for finding in normalized_findings
                     if SEVERITY_LEVELS.index(finding.severity)
-                    >= SEVERITY_LEVELS.index(severity_threshold)
+                    >= SEVERITY_LEVELS.index(normalized_threshold)
                 ]
             )
 
