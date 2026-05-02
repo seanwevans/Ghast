@@ -7,6 +7,8 @@ from pathlib import Path
 from ghast.core import WorkflowScanner, Finding, scan_repository, SEVERITY_LEVELS
 from ghast.core.scanner import Severity
 from ghast.utils import get_position, load_yaml_file_with_positions
+from ghast.rules import RuleEngine
+from ghast.utils import load_yaml_file_with_positions
 
 import pytest
 
@@ -27,8 +29,8 @@ def test_scanner_initialization():
     """Test scanner initialization with default and custom configs."""
 
     scanner = WorkflowScanner()
-    assert hasattr(scanner, "rule_registry")
-    assert len(scanner.rule_registry) > 0
+    assert hasattr(scanner, "rule_engine")
+    assert scanner.rule_engine is not None
 
     custom_config = {
         "check_timeout": False,
@@ -36,11 +38,44 @@ def test_scanner_initialization():
         "severity_thresholds": {"check_deprecated": "HIGH"},
     }
     scanner = WorkflowScanner(config=custom_config)
+    engine = scanner.rule_engine
 
-    assert not scanner.rule_registry["check_timeout"]["enabled"]
-    assert scanner.rule_registry["check_shell"]["enabled"]
+    timeout_rule = engine.get_rule_by_id("timeout")
+    shell_rule = engine.get_rule_by_id("shell_specification")
+    deprecated_rule = engine.get_rule_by_id("deprecated_actions")
 
-    assert scanner.rule_registry["check_deprecated"]["severity"] == "HIGH"
+    assert timeout_rule is not None and not timeout_rule.enabled
+    assert shell_rule is not None and shell_rule.enabled
+    assert deprecated_rule is not None and deprecated_rule.severity == "HIGH"
+
+
+def test_scan_file_matches_rule_engine_findings(patchable_workflow_file):
+    """Scanner should delegate execution and preserve finding output shape/content."""
+
+    scanner = WorkflowScanner()
+    findings = scanner.scan_file(patchable_workflow_file)
+
+    workflow = load_yaml_file_with_positions(patchable_workflow_file)
+    engine = RuleEngine()
+    expected_findings = engine.scan_workflow(workflow, patchable_workflow_file)
+
+    assert [
+        (f.rule_id, f.severity, f.message, f.line_number, f.column, f.can_fix) for f in findings
+    ] == [
+        (
+            (
+                f"rule_error.check_{f.rule_id.split('.', 1)[1]}"
+                if f.rule_id.startswith("rule_error.")
+                else (f.rule_id if f.rule_id.startswith("check_") else f"check_{f.rule_id}")
+            ),
+            f.severity,
+            f.message,
+            f.line_number,
+            f.column,
+            f.can_fix,
+        )
+        for f in expected_findings
+    ]
 
 
 def test_finding_severity_validation():

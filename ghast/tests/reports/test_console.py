@@ -117,6 +117,78 @@ def test_format_findings_by_severity(mock_findings):
     assert "Remediation:" not in no_remediation
 
 
+def test_format_findings_by_file_stable_ordering():
+    """Test stable deterministic ordering for file-grouped output."""
+    findings = [
+        Finding("rule-z", "HIGH", "z-msg", "zeta.yml", line_number=5),
+        Finding("rule-a", "HIGH", "a-msg", "alpha.yml", line_number=20),
+        Finding("rule-b", "HIGH", "b-msg", "alpha.yml", line_number=None),
+        Finding("rule-a", "HIGH", "a-msg-2", "alpha.yml", line_number=10),
+        Finding("rule-a", "HIGH", "a-msg", "alpha.yml", line_number=10),
+        Finding("rule-c", "LOW", "c-msg", "alpha.yml", line_number=1),
+    ]
+
+    formatted = format_findings_by_file(findings, show_remediation=False)
+
+    snapshot = [line for line in formatted.splitlines() if line.strip()]
+    assert snapshot == [
+        "File: alpha.yml",
+        "ℹ️ LOW: c-msg",
+        "  Rule: rule-c",
+        "  File: alpha.yml:1",
+        "❗ HIGH: a-msg",
+        "  Rule: rule-a",
+        "  File: alpha.yml:10",
+        "❗ HIGH: a-msg-2",
+        "  Rule: rule-a",
+        "  File: alpha.yml:10",
+        "❗ HIGH: a-msg",
+        "  Rule: rule-a",
+        "  File: alpha.yml:20",
+        "❗ HIGH: b-msg",
+        "  Rule: rule-b",
+        "  File: alpha.yml",
+        "File: zeta.yml",
+        "❗ HIGH: z-msg",
+        "  Rule: rule-z",
+        "  File: zeta.yml:5",
+    ]
+
+
+def test_format_findings_by_severity_stable_ordering():
+    """Test stable deterministic ordering for severity-grouped output."""
+    findings = [
+        Finding("rule-z", "HIGH", "z-msg", "zeta.yml", line_number=5),
+        Finding("rule-a", "HIGH", "a-msg", "alpha.yml", line_number=20),
+        Finding("rule-b", "HIGH", "b-msg", "alpha.yml", line_number=None),
+        Finding("rule-a", "HIGH", "a-msg-2", "alpha.yml", line_number=10),
+        Finding("rule-a", "HIGH", "a-msg", "alpha.yml", line_number=10),
+    ]
+
+    formatted = format_findings_by_severity(findings, show_remediation=False)
+
+    snapshot = [line for line in formatted.splitlines() if line.strip()]
+    assert snapshot == [
+        "HIGH Severity Issues (5)",
+        "=" * 50,
+        "❗ HIGH: z-msg",
+        "  Rule: rule-z",
+        "  File: zeta.yml:5",
+        "❗ HIGH: a-msg",
+        "  Rule: rule-a",
+        "  File: alpha.yml:10",
+        "❗ HIGH: a-msg-2",
+        "  Rule: rule-a",
+        "  File: alpha.yml:10",
+        "❗ HIGH: a-msg",
+        "  Rule: rule-a",
+        "  File: alpha.yml:20",
+        "❗ HIGH: b-msg",
+        "  Rule: rule-b",
+        "  File: alpha.yml",
+    ]
+
+
 def test_format_summary(mock_stats):
     """Test formatting summary statistics."""
     formatted = format_summary(mock_stats)

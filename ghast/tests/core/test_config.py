@@ -60,7 +60,7 @@ def test_load_config_with_path(temp_dir):
 
     assert config["check_timeout"] is False
     assert config["check_shell"] is True
-    assert config["severity_thresholds"]["check_deprecated"] == Severity.HIGH
+    assert config["severity_thresholds"]["check_deprecated"] == "HIGH"
 
     assert "default_timeout_minutes" in config
 
@@ -160,6 +160,22 @@ def test_validate_config_unknown_key():
         validate_config(invalid_config)
 
 
+def test_validate_config_unknown_key_with_suggestion():
+    """Test unknown key error includes likely intended keys."""
+    invalid_config = {"check_timeot": True}
+
+    with pytest.raises(ConfigurationError, match=r"Did you mean: .*check_timeout"):
+        validate_config(invalid_config)
+
+
+def test_validate_config_unknown_key_without_suggestion():
+    """Test unknown key error still references sample config when no suggestions exist."""
+    invalid_config = {"zzzzzzzzzz": True}
+
+    with pytest.raises(ConfigurationError, match="examples/ghast.yml"):
+        validate_config(invalid_config)
+
+
 def test_merge_configs():
     """Test merging configurations."""
     base_config = {
@@ -203,6 +219,11 @@ def test_validate_severity_thresholds_helper():
     """Test helper for validating severity thresholds."""
     valid = {"severity_thresholds": {"check_timeout": "HIGH"}}
     _validate_severity_thresholds(valid)
+    assert valid["severity_thresholds"]["check_timeout"] == "HIGH"
+
+    mixed_case = {"severity_thresholds": {"check_timeout": "mEdIuM"}}
+    _validate_severity_thresholds(mixed_case)
+    assert mixed_case["severity_thresholds"]["check_timeout"] == "MEDIUM"
 
     invalid = {"severity_thresholds": {"check_timeout": "INVALID"}}
     with pytest.raises(ConfigurationError):
