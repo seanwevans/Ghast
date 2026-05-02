@@ -237,8 +237,14 @@ class Fixer:
             # use one-based. Attempt both interpretations to ensure the
             # correct step is fixed.
             fixed = False
-            has_position_metadata = any(isinstance(step, dict) and "__line__" in step for step in steps)
-            candidate_indices = (step_number, step_number - 1) if has_position_metadata else (step_number - 1, step_number)
+            has_position_metadata = any(
+                isinstance(step, dict) and "__line__" in step for step in steps
+            )
+            candidate_indices = (
+                (step_number, step_number - 1)
+                if has_position_metadata
+                else (step_number - 1, step_number)
+            )
             for step_idx in candidate_indices:
                 if 0 <= step_idx < len(steps):
                     step = steps[step_idx]
