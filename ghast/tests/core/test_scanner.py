@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ghast.core import WorkflowScanner, Finding, scan_repository, SEVERITY_LEVELS
 from ghast.core.scanner import Severity
+from ghast.utils import get_position, load_yaml_file_with_positions
 from ghast.rules import RuleEngine
 from ghast.utils import load_yaml_file_with_positions
 
@@ -184,8 +185,8 @@ def test_check_tokens(token_workflow_file):
     assert any("toJson(secrets)" in m for m in messages)
 
     steps = workflow["jobs"]["build"]["steps"]
-    token_line = steps[0]["__line__"]
-    tojson_line = steps[2]["__line__"]
+    token_line = get_position(steps[0])[0]
+    tojson_line = get_position(steps[2])[0]
     token_finding = next(f for f in findings if "Hardcoded token" in f.message)
     tojson_finding = next(f for f in findings if "toJson(secrets)" in f.message)
     assert token_finding.line_number == token_line
@@ -266,7 +267,7 @@ jobs:
     assert "environment" in finding.message
 
     steps = workflow["jobs"]["build"]["steps"]
-    step_line = steps[0]["__line__"]
+    step_line = get_position(steps[0])[0]
     assert finding.line_number == step_line
     assert finding.column is not None
 
@@ -302,7 +303,7 @@ jobs:
     assert finding.rule_id == "check_reusable_inputs"
 
     steps = workflow["jobs"]["build"]["steps"]
-    assert finding.line_number == steps[0]["__line__"]
+    assert finding.line_number == get_position(steps[0])[0]
     assert finding.column is not None
 
 

@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
-from ..utils.yaml_handler import load_yaml_file_with_positions
+from ..utils.yaml_handler import get_position, load_yaml_file_with_positions
 
 
 class Severity(Enum):
@@ -209,8 +209,6 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
-            if job_id in ("__line__", "__column__"):
-                continue
             steps = job.get("steps", [])
 
             # Count individual commands within multiline run steps to better
@@ -233,8 +231,8 @@ class WorkflowScanner:
                         severity=Severity.LOW,
                         message=f"Job '{job_id}' has {step_count} steps but no timeout-minutes set",
                         file_path=file_path,
-                        line_number=job.get("__line__"),
-                        column=job.get("__column__"),
+                        line_number=get_position(job)[0],
+                        column=get_position(job)[1],
                         remediation=f"Add 'timeout-minutes: 15' to job '{job_id}'",
                         can_fix=True,
                     )
@@ -257,8 +255,8 @@ class WorkflowScanner:
                     severity=Severity.HIGH,
                     message="Missing explicit permissions at workflow level",
                     file_path=file_path,
-                    line_number=workflow.get("__line__"),
-                    column=workflow.get("__column__"),
+                    line_number=get_position(workflow)[0],
+                    column=get_position(workflow)[1],
                     remediation=remediation_workflow,
                     can_fix=True,
                 )
@@ -270,8 +268,8 @@ class WorkflowScanner:
                     severity=Severity.HIGH,
                     message="Overly permissive workflow permissions (write-all)",
                     file_path=file_path,
-                    line_number=workflow.get("__line__"),
-                    column=workflow.get("__column__"),
+                    line_number=get_position(workflow)[0],
+                    column=get_position(workflow)[1],
                     remediation=remediation_workflow,
                 )
             )
@@ -282,9 +280,6 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
-            if job_id in ("__line__", "__column__"):
-                continue
-
             permissions = job.get("permissions")
             if permissions is None:
                 findings.append(
@@ -293,8 +288,8 @@ class WorkflowScanner:
                         severity=Severity.HIGH,
                         message=f"Missing explicit permissions in job '{job_id}'",
                         file_path=file_path,
-                        line_number=job.get("__line__"),
-                        column=job.get("__column__"),
+                        line_number=get_position(job)[0],
+                        column=get_position(job)[1],
                         remediation=remediation_job_template.format(job_id=job_id),
                         can_fix=True,
                     )
@@ -306,8 +301,8 @@ class WorkflowScanner:
                         severity=Severity.HIGH,
                         message=f"Job '{job_id}' has overly permissive permissions (write-all)",
                         file_path=file_path,
-                        line_number=job.get("__line__"),
-                        column=job.get("__column__"),
+                        line_number=get_position(job)[0],
+                        column=get_position(job)[1],
                         remediation=remediation_job_template.format(job_id=job_id),
                     )
                 )
@@ -320,8 +315,6 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
-            if job_id in ("__line__", "__column__"):
-                continue
             steps = job.get("steps", [])
             for step_idx, step in enumerate(steps):
                 if isinstance(step, dict) and "run" in step and isinstance(step["run"], str):
@@ -332,8 +325,8 @@ class WorkflowScanner:
                                 severity=Severity.LOW,
                                 message=f"Multiline script in job '{job_id}' step {step_idx+1} has no shell specified",
                                 file_path=file_path,
-                                line_number=step.get("__line__"),
-                                column=step.get("__column__"),
+                                line_number=get_position(step)[0],
+                                column=get_position(step)[1],
                                 remediation="Add 'shell: bash' to this step",
                                 can_fix=True,
                             )
@@ -353,8 +346,6 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
-            if job_id in ("__line__", "__column__"):
-                continue
             steps = job.get("steps", [])
             for step_idx, step in enumerate(steps):
                 if isinstance(step, dict) and "uses" in step:
@@ -366,8 +357,8 @@ class WorkflowScanner:
                                     severity=Severity.MEDIUM,
                                     message=f"Deprecated action '{step['uses']}' in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
-                                    line_number=step.get("__line__"),
-                                    column=step.get("__column__"),
+                                    line_number=get_position(step)[0],
+                                    column=get_position(step)[1],
                                     remediation=recommendation,
                                     can_fix=True,
                                 )
@@ -382,17 +373,13 @@ class WorkflowScanner:
         jobs = workflow.get("jobs", {})
 
         for job_id, job in jobs.items():
-            if job_id in ("__line__", "__column__"):
-                continue
-
             steps = job.get("steps", [])
             for step_idx, step in enumerate(steps):
                 if not isinstance(step, dict) or "uses" not in step:
                     continue
 
                 action = step["uses"]
-                line_number = step.get("__line__")
-                column_number = step.get("__column__")
+                line_number, column_number = get_position(step)
 
                 if re.search(r"@(main|master)$", action):
                     findings.append(
@@ -433,8 +420,6 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
-            if job_id in ("__line__", "__column__"):
-                continue
             runs_on = job.get("runs-on", "")
 
             if not runs_on:
@@ -444,8 +429,8 @@ class WorkflowScanner:
                         severity=Severity.MEDIUM,
                         message=f"Missing 'runs-on' in job '{job_id}'",
                         file_path=file_path,
-                        line_number=job.get("__line__"),
-                        column=job.get("__column__"),
+                        line_number=get_position(job)[0],
+                        column=get_position(job)[1],
                         remediation="Specify a runner, e.g., 'runs-on: ubuntu-latest'",
                         can_fix=True,
                     )
@@ -457,8 +442,8 @@ class WorkflowScanner:
                         severity=Severity.MEDIUM,
                         message=f"Job '{job_id}' uses self-hosted runner without labels",
                         file_path=file_path,
-                        line_number=job.get("__line__"),
-                        column=job.get("__column__"),
+                        line_number=get_position(job)[0],
+                        column=get_position(job)[1],
                         remediation="Add specific labels to self-hosted runners for better security isolation",
                         can_fix=False,
                     )
@@ -470,8 +455,8 @@ class WorkflowScanner:
                         severity=Severity.LOW if len(runs_on) > 1 else Severity.MEDIUM,
                         message=f"Job '{job_id}' uses self-hosted runner",
                         file_path=file_path,
-                        line_number=job.get("__line__"),
-                        column=job.get("__column__"),
+                        line_number=get_position(job)[0],
+                        column=get_position(job)[1],
                         remediation="Consider using GitHub-hosted runners for better security isolation",
                         can_fix=False,
                     )
@@ -503,8 +488,6 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
-            if job_id in ("__line__", "__column__"):
-                continue
             if job.get("continue-on-error") is True:
                 findings.append(
                     Finding(
@@ -512,8 +495,8 @@ class WorkflowScanner:
                         severity=Severity.MEDIUM,
                         message=f"Job '{job_id}' has 'continue-on-error: true'",
                         file_path=file_path,
-                        line_number=job.get("__line__"),
-                        column=job.get("__column__"),
+                        line_number=get_position(job)[0],
+                        column=get_position(job)[1],
                         remediation="Remove 'continue-on-error' or set to false to ensure workflow fails on error",
                         can_fix=False,
                     )
@@ -528,8 +511,8 @@ class WorkflowScanner:
                             severity=Severity.MEDIUM,
                             message=f"Step {step_idx+1} in job '{job_id}' has 'continue-on-error: true'",
                             file_path=file_path,
-                            line_number=step.get("__line__"),
-                            column=step.get("__column__"),
+                            line_number=get_position(step)[0],
+                            column=get_position(step)[1],
                             remediation="Remove 'continue-on-error' or set to false to ensure workflow fails on error",
                             can_fix=False,
                         )
@@ -565,24 +548,22 @@ class WorkflowScanner:
 
         def walk(node: Any, line: Optional[int] = None, column: Optional[int] = None) -> None:
             if isinstance(node, dict):
-                current_line = node.get("__line__", line)
-                current_column = node.get("__column__", column)
+                current_line, current_column = get_position(node)
+                current_line = current_line if current_line is not None else line
+                current_column = current_column if current_column is not None else column
                 for key, value in node.items():
-                    if key in ("__line__", "__column__"):
-                        continue
-                    value_line = getattr(value, "__line__", None)
-                    value_column = getattr(value, "__column__", None)
+                    value_line, value_column = get_position(value)
                     walk(
                         value,
                         value_line if value_line is not None else current_line,
                         value_column if value_column is not None else current_column,
                     )
             elif isinstance(node, list):
-                current_line = getattr(node, "__line__", line)
-                current_column = getattr(node, "__column__", column)
+                current_line, current_column = get_position(node)
+                current_line = current_line if current_line is not None else line
+                current_column = current_column if current_column is not None else column
                 for item in node:
-                    item_line = getattr(item, "__line__", None)
-                    item_column = getattr(item, "__column__", None)
+                    item_line, item_column = get_position(item)
                     walk(
                         item,
                         item_line if item_line is not None else current_line,
@@ -646,9 +627,7 @@ class WorkflowScanner:
 
         if isinstance(inputs_section, dict):
             for input_name in inputs_section:
-                if input_name in ("__line__", "__column__"):
-                    continue
-                defined_inputs.add(str(input_name))
+                                defined_inputs.add(str(input_name))
         else:
             inputs_section = None
 
@@ -660,24 +639,22 @@ class WorkflowScanner:
 
         def walk(node: Any, line: Optional[int], column: Optional[int]) -> None:
             if isinstance(node, dict):
-                current_line = node.get("__line__", line)
-                current_column = node.get("__column__", column)
+                current_line, current_column = get_position(node)
+                current_line = current_line if current_line is not None else line
+                current_column = current_column if current_column is not None else column
                 for key, value in node.items():
-                    if key in ("__line__", "__column__"):
-                        continue
-                    value_line = getattr(value, "__line__", None)
-                    value_column = getattr(value, "__column__", None)
+                    value_line, value_column = get_position(value)
                     walk(
                         value,
                         value_line if value_line is not None else current_line,
                         value_column if value_column is not None else current_column,
                     )
             elif isinstance(node, list):
-                current_line = getattr(node, "__line__", line)
-                current_column = getattr(node, "__column__", column)
+                current_line, current_column = get_position(node)
+                current_line = current_line if current_line is not None else line
+                current_column = current_column if current_column is not None else column
                 for item in node:
-                    item_line = getattr(item, "__line__", None)
-                    item_column = getattr(item, "__column__", None)
+                    item_line, item_column = get_position(item)
                     walk(
                         item,
                         item_line if item_line is not None else current_line,
@@ -690,10 +667,9 @@ class WorkflowScanner:
                     references.add((match.group(1), line, column))
 
         for job_id, job in jobs.items():
-            if job_id in ("__line__", "__column__"):
-                continue
             if isinstance(job, dict):
-                walk(job, job.get("__line__"), job.get("__column__"))
+                _line, _col = get_position(job)
+                walk(job, _line, _col)
 
         if not references:
             return findings
@@ -741,8 +717,6 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
-            if job_id in ("__line__", "__column__"):
-                continue
             steps = job.get("steps", [])
 
             checkout_found = False
@@ -779,8 +753,8 @@ class WorkflowScanner:
                         severity=Severity.CRITICAL,
                         message=f"Poisoned Pipeline Execution vulnerability: job '{job_id}' uses {', '.join(high_risk_triggers_used)} trigger with checkout of untrusted code",
                         file_path=file_path,
-                        line_number=job.get("__line__"),
-                        column=job.get("__column__"),
+                        line_number=get_position(job)[0],
+                        column=get_position(job)[1],
                         remediation="Use pull_request trigger instead, or if pull_request_target is required, do not check out untrusted code or use dedicated jobs with restricted permissions.",
                         can_fix=False,
                         context={
@@ -797,8 +771,8 @@ class WorkflowScanner:
                         severity=Severity.CRITICAL,
                         message=f"High-risk secret exposure: job '{job_id}' uses 'secrets: inherit' with {', '.join(high_risk_triggers_used)} trigger",
                         file_path=file_path,
-                        line_number=job.get("__line__"),
-                        column=job.get("__column__"),
+                        line_number=get_position(job)[0],
+                        column=get_position(job)[1],
                         remediation="Explicitly pass only required secrets to jobs, or use 'repositories' field to restrict which repos can use this workflow",
                         can_fix=False,
                         context={"triggers": list(high_risk_triggers_used)},
@@ -838,8 +812,6 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
-            if job_id in ("__line__", "__column__"):
-                continue
             steps = job.get("steps", [])
             for step_idx, step in enumerate(steps):
                 if isinstance(step, dict) and "run" in step and isinstance(step["run"], str):
@@ -853,8 +825,8 @@ class WorkflowScanner:
                                     severity=Severity.HIGH,
                                     message=f"{desc} in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
-                                    line_number=step.get("__line__"),
-                                    column=step.get("__column__"),
+                                    line_number=get_position(step)[0],
+                                    column=get_position(step)[1],
                                     remediation="Never use untrusted input directly in shell commands. Use input validation or environment variables with proper quoting.",
                                     can_fix=False,
                                 )
@@ -868,8 +840,8 @@ class WorkflowScanner:
                                     severity=Severity.MEDIUM,
                                     message=f"Environment variable interpolation in shell command in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
-                                    line_number=step.get("__line__"),
-                                    column=step.get("__column__"),
+                                    line_number=get_position(step)[0],
+                                    column=get_position(step)[1],
                                     remediation="Be careful with environment variable interpolation in shell commands. Consider using proper quoting.",
                                     can_fix=False,
                                 )
@@ -883,8 +855,6 @@ class WorkflowScanner:
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
-            if job_id in ("__line__", "__column__"):
-                continue
             steps = job.get("steps", [])
 
             checkout_step_idx = None
@@ -916,8 +886,8 @@ class WorkflowScanner:
                                     severity=Severity.HIGH,
                                     message=f"Modification of GITHUB_ENV after checkout in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
-                                    line_number=step.get("__line__"),
-                                    column=step.get("__column__"),
+                                    line_number=get_position(step)[0],
+                                    column=get_position(step)[1],
                                     remediation="Avoid modifying GITHUB_ENV after checking out untrusted code, or move environment settings before checkout.",
                                     can_fix=False,
                                 )
@@ -934,8 +904,8 @@ class WorkflowScanner:
                                     severity=Severity.HIGH,
                                     message=f"Modification of GITHUB_PATH after checkout in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
-                                    line_number=step.get("__line__"),
-                                    column=step.get("__column__"),
+                                    line_number=get_position(step)[0],
+                                    column=get_position(step)[1],
                                     remediation="Avoid modifying GITHUB_PATH after checking out untrusted code, or move path modifications before checkout.",
                                     can_fix=False,
                                 )

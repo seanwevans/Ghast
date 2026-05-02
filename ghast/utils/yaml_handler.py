@@ -8,29 +8,57 @@ including position-aware parsing and formatting preservation.
 import yaml
 from typing import Any, Dict, List, Optional, TextIO, Sequence, Union, cast
 from pathlib import Path
-from yaml.nodes import MappingNode, Node
+from yaml.nodes import Node
 
 
 class LineColumnLoader(yaml.SafeLoader):
-    """Custom YAML loader that tracks line and column information"""
+    """Custom YAML loader used for string-preserving resolution tweaks."""
 
-    def __init__(self, stream: TextIO | str) -> None:
-        super().__init__(stream)
 
-    def compose_node(self, parent: Any, index: Any) -> Node:
-        """Add line/column information to nodes"""
-        node = cast(Node, super().compose_node(parent, index))
-        setattr(node, "__line__", self.line + 1)
-        setattr(node, "__column__", self.column)
-        return node
+Position = tuple[Optional[int], Optional[int]]
+_positions_by_root_id: Dict[int, Dict[int, Position]] = {}
+_paths_by_root_id: Dict[int, Dict[tuple[Union[str, int], ...], Position]] = {}
 
-    def construct_mapping(self, node: MappingNode, deep: bool = False) -> Dict[Any, Any]:
-        """Add line/column information to dictionaries"""
-        mapping = cast(Dict[Any, Any], super().construct_mapping(node, deep=deep))
-        mapping["__line__"] = getattr(node, "__line__", None)
-        mapping["__column__"] = getattr(node, "__column__", None)
-        return mapping
 
+def _build_position_indexes(node: Node, obj: Any) -> tuple[Dict[int, Position], Dict[tuple[Union[str, int], ...], Position]]:
+    by_id: Dict[int, Position] = {}
+    by_path: Dict[tuple[Union[str, int], ...], Position] = {}
+
+    def walk(current_node: Node, current_obj: Any, path: tuple[Union[str, int], ...]) -> None:
+        position = (current_node.start_mark.line + 1, current_node.start_mark.column)
+        if isinstance(current_obj, (dict, list)):
+            by_id[id(current_obj)] = position
+        by_path[path] = position
+
+        if isinstance(current_node, yaml.nodes.MappingNode) and isinstance(current_obj, dict):
+            for key_node, value_node in current_node.value:
+                if not isinstance(key_node, yaml.nodes.ScalarNode):
+                    continue
+                key = key_node.value
+                if key in current_obj:
+                    walk(value_node, current_obj[key], (*path, key))
+        elif isinstance(current_node, yaml.nodes.SequenceNode) and isinstance(current_obj, list):
+            for idx, item_node in enumerate(current_node.value):
+                if idx < len(current_obj):
+                    walk(item_node, current_obj[idx], (*path, idx))
+
+    walk(node, obj, ())
+    return by_id, by_path
+
+
+def get_position(node_or_path: Any, root: Optional[Any] = None) -> Position:
+    """Get (line, column) metadata for a parsed YAML object or path."""
+    if root is not None:
+        root_id = id(root)
+        if isinstance(node_or_path, (tuple, list)):
+            return _paths_by_root_id.get(root_id, {}).get(tuple(node_or_path), (None, None))
+        return _positions_by_root_id.get(root_id, {}).get(id(node_or_path), (None, None))
+
+    for positions in _positions_by_root_id.values():
+        found = positions.get(id(node_or_path))
+        if found is not None:
+            return found
+    return (None, None)
 
 # PyYAML follows the YAML 1.1 specification which treats certain plain
 # strings such as ``on``, ``off``, ``yes`` and ``no`` as booleans.  In the
@@ -72,7 +100,12 @@ def load_yaml_with_positions(content: str) -> Dict[str, Any]:
     Raises:
         yaml.YAMLError: If YAML parsing fails
     """
-    return cast(Dict[str, Any], yaml.load(content, Loader=LineColumnLoader))
+    loaded = cast(Dict[str, Any], yaml.load(content, Loader=LineColumnLoader))
+    node_tree = cast(Node, yaml.compose(content, Loader=LineColumnLoader))
+    by_id, by_path = _build_position_indexes(node_tree, loaded)
+    _positions_by_root_id[id(loaded)] = by_id
+    _paths_by_root_id[id(loaded)] = by_path
+    return loaded
 
 
 def load_yaml_file_with_positions(file_path: str) -> Dict[str, Any]:
@@ -126,14 +159,12 @@ def dump_yaml(obj: Any, stream: Optional[TextIO] = None, **kwargs: Any) -> Optio
         YAML string if stream is None, otherwise None
     """
 
-    cleaned_obj = clean_positions(obj)
-
     kwargs.setdefault("sort_keys", False)
     kwargs.setdefault("default_flow_style", False)
 
     return cast(
         Optional[str],
-        yaml.dump(cleaned_obj, stream, Dumper=FormattingPreservingDumper, **kwargs),
+        yaml.dump(obj, stream, Dumper=FormattingPreservingDumper, **kwargs),
     )
 
 
