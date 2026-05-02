@@ -30,6 +30,8 @@ class PermissionsRule(WorkflowRule):
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__") or not isinstance(job, dict):
+                continue
             findings.extend(self.check_job_permissions(job_id, job, file_path))
 
         return findings
@@ -52,6 +54,8 @@ class PermissionsRule(WorkflowRule):
                 self.create_finding(
                     message="Missing explicit permissions at workflow level",
                     file_path=file_path,
+                    line_number=workflow.get("__line__"),
+                    column=workflow.get("__column__"),
                     can_fix=True,
                 )
             )
@@ -60,6 +64,8 @@ class PermissionsRule(WorkflowRule):
                 self.create_finding(
                     message="Overly permissive workflow permissions (write-all)",
                     file_path=file_path,
+                    line_number=workflow.get("__line__"),
+                    column=workflow.get("__column__"),
                 )
             )
 
@@ -78,6 +84,8 @@ class PermissionsRule(WorkflowRule):
                 self.create_finding(
                     message=f"Missing explicit permissions in job '{job_id}'",
                     file_path=file_path,
+                    line_number=job.get("__line__"),
+                    column=job.get("__column__"),
                     can_fix=True,
                 )
             )
@@ -86,6 +94,8 @@ class PermissionsRule(WorkflowRule):
                 self.create_finding(
                     message=f"Job '{job_id}' has overly permissive permissions (write-all)",
                     file_path=file_path,
+                    line_number=job.get("__line__"),
+                    column=job.get("__column__"),
                 )
             )
 
@@ -148,6 +158,8 @@ class PoisonedPipelineExecutionRule(Rule):
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__") or not isinstance(job, dict):
+                continue
             steps = job.get("steps", [])
 
             checkout_found = False
@@ -257,6 +269,8 @@ class CommandInjectionRule(StepRule):
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__") or not isinstance(job, dict):
+                continue
             steps = job.get("steps", [])
 
             for step_idx, step in enumerate(steps):
@@ -299,6 +313,8 @@ class EnvironmentInjectionRule(StepRule):
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__") or not isinstance(job, dict):
+                continue
             steps = job.get("steps", [])
 
             checkout_step_idx = None
@@ -370,6 +386,8 @@ class TokenSecurityRule(TokenRule):
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__") or not isinstance(job, dict):
+                continue
             steps = job.get("steps", [])
 
             for step_idx, step in enumerate(steps):
@@ -389,6 +407,8 @@ class TokenSecurityRule(TokenRule):
                                     "does not disable credential persistence"
                                 ),
                                 file_path=file_path,
+                                line_number=step.get("__line__"),
+                                column=step.get("__column__"),
                                 remediation=(
                                     "Add 'persist-credentials: false' to the 'with' section of actions/checkout steps"
                                 ),
@@ -443,6 +463,8 @@ class ActionPinningRule(StepRule):
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__") or not isinstance(job, dict):
+                continue
             steps = job.get("steps", [])
 
             for step_idx, step in enumerate(steps):

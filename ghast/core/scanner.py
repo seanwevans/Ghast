@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
@@ -73,13 +73,14 @@ class WorkflowScanner:
         """
         self.strict = strict
         self.config = config or {}
-        self.rule_registry: Dict[str, Dict[str, Any]] = {}
-        self.register_default_rules()
+        from ..rules.engine import RuleEngine
+
+        self.rule_engine = RuleEngine(config=self.config, strict=self.strict)
 
     def register_rule(
         self,
         rule_id: str,
-        rule_func: Callable[[Dict[str, Any], str], List[Finding]],
+        rule_func: Any,
         severity: Union[str, Severity] = Severity.MEDIUM,
         enabled: bool = True,
         description: Optional[str] = None,
@@ -95,122 +96,15 @@ class WorkflowScanner:
             description: Human-readable description of the rule
         """
 
-        if self.config and rule_id in self.config:
-            enabled = self.config[rule_id]
-
-        severity_config = self.config.get("severity_thresholds", {})
-        if rule_id in severity_config:
-            severity = severity_config[rule_id]
-
-        if isinstance(severity, Severity):
-            severity = severity.value
-
-        self.rule_registry[rule_id] = {
-            "func": rule_func,
-            "enabled": enabled,
-            "severity": severity,
-            "description": description,
-        }
+        # Backward compatibility shim: keep method available for callers that
+        # may have extended WorkflowScanner directly. Rule registration is now
+        # delegated to RuleEngine internals.
+        _ = (rule_id, rule_func, severity, enabled, description)
 
     def register_default_rules(self) -> None:
         """Register the built-in rules"""
-        self.register_rule(
-            "check_timeout",
-            self.check_timeout,
-            severity=Severity.LOW,
-            description="Ensures long jobs have timeout-minutes to prevent hanging",
-        )
-
-        self.register_rule(
-            "check_shell",
-            self.check_shell,
-            severity=Severity.LOW,
-            description="Adds shell: bash for multiline run: blocks",
-        )
-
-        self.register_rule(
-            "check_deprecated",
-            self.check_deprecated,
-            severity=Severity.MEDIUM,
-            description="Warns on old actions like actions/checkout@v1",
-        )
-
-        self.register_rule(
-            "check_action_pinning",
-            self.check_action_pinning,
-            severity=Severity.MEDIUM,
-            description="Detects GitHub Actions steps that are not pinned to a commit SHA",
-        )
-
-        self.register_rule(
-            "check_runs_on",
-            self.check_runs_on,
-            severity=Severity.MEDIUM,
-            description="Warns on ambiguous/self-hosted runners",
-        )
-
-        self.register_rule(
-            "check_workflow_name",
-            self.check_workflow_name,
-            severity=Severity.LOW,
-            description="Encourages top-level name: for visibility",
-        )
-
-        self.register_rule(
-            "check_continue_on_error",
-            self.check_continue_on_error,
-            severity=Severity.MEDIUM,
-            description="Warns if continue-on-error: true is used",
-        )
-
-        self.register_rule(
-            "check_tokens",
-            self.check_tokens,
-            severity=Severity.HIGH,
-            description="Flags hardcoded access tokens",
-        )
-
-        self.register_rule(
-            "check_permissions",
-            self.check_permissions,
-            severity=Severity.HIGH,
-            description="Requires explicit read-only permissions at workflow and job levels",
-        )
-
-        self.register_rule(
-            "check_reusable_inputs",
-            self.check_reusable_inputs,
-            severity=Severity.MEDIUM,
-            description="Ensures reusable workflows define proper inputs",
-        )
-
-        self.register_rule(
-            "check_ppe_vulnerabilities",
-            self.check_ppe_vulnerabilities,
-            severity=Severity.CRITICAL,
-            description="Detects Poisoned Pipeline Execution vulnerabilities",
-        )
-
-        self.register_rule(
-            "check_command_injection",
-            self.check_command_injection,
-            severity=Severity.HIGH,
-            description="Finds potential command injection vulnerabilities",
-        )
-
-        self.register_rule(
-            "check_env_injection",
-            self.check_env_injection,
-            severity=Severity.HIGH,
-            description="Detects unsafe modifications to GITHUB_ENV and GITHUB_PATH",
-        )
-
-        self.register_rule(
-            "check_inline_bash",
-            self.check_shell,
-            severity=Severity.LOW,
-            description="Alias for check_shell",
-        )
+        # Backward compatibility shim: default rules are now owned by RuleEngine.
+        return
 
     def scan_file(
         self, file_path: str, severity_threshold: str = Severity.LOW.value
@@ -238,30 +132,20 @@ class WorkflowScanner:
             if not isinstance(content, dict) or "jobs" not in content or "on" not in content:
                 raise yaml.YAMLError("File is not a valid GitHub Actions workflow")
 
-            for rule_id, rule_info in self.rule_registry.items():
-                if not rule_info["enabled"]:
-                    continue
-
-                rule_severity = normalize_severity(rule_info["severity"])
-                if SEVERITY_LEVELS.index(rule_severity) < SEVERITY_LEVELS.index(
-                    normalized_threshold
-                ):
-                    continue
-
-                try:
-                    rule_findings = rule_info["func"](content, file_path)
-                    for finding in rule_findings:
-                        findings.append(finding)
-                except Exception as e:
-                    findings.append(
-                        Finding(
-                            rule_id=f"rule_error.{rule_id}",
-                            severity=Severity.LOW,
-                            message=f"Error executing rule {rule_id}: {str(e)}",
-                            file_path=file_path,
-                            remediation="This is a bug in ghast. Please report it.",
-                        )
-                    )
+            engine_findings = self.rule_engine.scan_workflow(
+                content,
+                file_path,
+                severity_threshold=severity_threshold,
+            )
+            normalized_findings = self._normalize_rule_ids(engine_findings)
+            findings.extend(
+                [
+                    finding
+                    for finding in normalized_findings
+                    if SEVERITY_LEVELS.index(finding.severity)
+                    >= SEVERITY_LEVELS.index(severity_threshold)
+                ]
+            )
 
         except Exception as e:
             findings.append(
@@ -275,6 +159,24 @@ class WorkflowScanner:
             )
 
         return findings
+
+    def _normalize_rule_ids(self, findings: List[Finding]) -> List[Finding]:
+        """Normalize engine rule IDs to scanner-compatible check_* naming."""
+        normalized: List[Finding] = []
+        for finding in findings:
+            if finding.rule_id.startswith("rule_error."):
+                _, _, raw_rule = finding.rule_id.partition(".")
+                if raw_rule.startswith("check_"):
+                    normalized.append(finding)
+                else:
+                    finding.rule_id = f"rule_error.check_{raw_rule}"
+                    normalized.append(finding)
+            elif finding.rule_id.startswith("check_"):
+                normalized.append(finding)
+            else:
+                finding.rule_id = f"check_{finding.rule_id}"
+                normalized.append(finding)
+        return normalized
 
     def scan_directory(
         self, directory_path: str, severity_threshold: str = Severity.LOW.value

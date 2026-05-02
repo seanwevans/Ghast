@@ -32,6 +32,8 @@ class TimeoutRule(JobRule):
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__") or not isinstance(job, dict):
+                continue
             findings.extend(self.check_job_timeout(job_id, job, file_path, self.min_steps))
 
         return findings
@@ -70,6 +72,8 @@ class ShellSpecificationRule(StepRule):
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__") or not isinstance(job, dict):
+                continue
             steps = job.get("steps", [])
 
             for step_idx, step in enumerate(steps):
@@ -176,6 +180,8 @@ class DeprecatedActionsRule(StepRule):
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__") or not isinstance(job, dict):
+                continue
             steps = job.get("steps", [])
 
             for step_idx, step in enumerate(steps):
@@ -191,6 +197,8 @@ class DeprecatedActionsRule(StepRule):
                                 self.create_finding(
                                     message=f"Deprecated action '{action}' in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
+                                    line_number=step.get("__line__"),
+                                    column=step.get("__column__"),
                                     remediation=f"Update to {replacement}",
                                     can_fix=True,
                                     context={
@@ -254,11 +262,15 @@ class ContinueOnErrorRule(Rule):
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__") or not isinstance(job, dict):
+                continue
             if job.get("continue-on-error") is True:
                 findings.append(
                     self.create_finding(
                         message=f"Job '{job_id}' has 'continue-on-error: true'",
                         file_path=file_path,
+                        line_number=job.get("__line__"),
+                        column=job.get("__column__"),
                     )
                 )
 
@@ -272,6 +284,8 @@ class ContinueOnErrorRule(Rule):
                         self.create_finding(
                             message=f"Step {step_idx+1} in job '{job_id}' has 'continue-on-error: true'",
                             file_path=file_path,
+                            line_number=step.get("__line__"),
+                            column=step.get("__column__"),
                         )
                     )
 
@@ -296,12 +310,16 @@ class ReusableWorkflowRule(Rule):
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
+            if job_id in ("__line__", "__column__") or not isinstance(job, dict):
+                continue
             if job.get("uses") and "with" in job:
                 if not job.get("inputs"):
                     findings.append(
                         self.create_finding(
                             message=f"Reusable workflow in job '{job_id}' uses 'with' without defining 'inputs'",
                             file_path=file_path,
+                            line_number=job.get("__line__"),
+                            column=job.get("__column__"),
                         )
                     )
 
