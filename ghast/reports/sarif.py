@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, cast
 
 from ..core import Finding
+from ..core.scanner import normalize_severity
 from ..utils.version import __version__
 
 SARIF_VERSION = "2.1.0"
@@ -104,7 +105,7 @@ def finding_to_sarif_result(finding: Finding, repo_root: Optional[str] = None) -
 
     result: Dict[str, Any] = {
         "ruleId": finding.rule_id,
-        "level": severity_to_sarif_level(finding.severity),
+        "level": severity_to_sarif_level(normalize_severity(finding.severity)),
         "message": {"text": finding.message},
         "locations": [{"physicalLocation": {"artifactLocation": {"uri": file_path}}}],
     }
@@ -193,7 +194,7 @@ def generate_sarif_report(
         if finding.rule_id not in rules_dict:
             rule = rule_to_sarif_rule(
                 finding.rule_id,
-                finding.severity,
+                normalize_severity(finding.severity),
                 description=finding.message,
                 help_text=finding.remediation,
             )

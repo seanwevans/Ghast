@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, TextIO
 import click
 
 from ..core import SEVERITY_LEVELS, Finding
+from ..core.scanner import normalize_severity
 from ..utils.formatter import SEVERITY_COLORS  # noqa: F401
 
 # Mapping of severity levels to Click color names used for console output
@@ -96,7 +97,7 @@ def format_finding(finding: Finding, verbose: bool = False, show_remediation: bo
     Returns:
         Formatted finding as string
     """
-    severity = finding.severity
+    severity = normalize_severity(finding.severity)
     symbol = get_severity_symbol(severity)
 
     formatted = (

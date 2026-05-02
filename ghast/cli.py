@@ -69,7 +69,7 @@ def _prepare_scan(
             raise click.ClickException(f"Error loading config file: {e}")
 
     else:
-        config_data = copy.deepcopy(config_default) if config_default is not None else None
+        config_data = copy.deepcopy(config_default) if config_default is not None else {}
 
     if disable:
         if config_data is None:
@@ -97,7 +97,8 @@ def _prepare_scan(
 
         for finding in findings:
             severity_counts = cast(Dict[str, int], stats["severity_counts"])
-            severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
+            finding_severity = normalize_severity(finding.severity)
+            severity_counts[finding_severity] = severity_counts.get(finding_severity, 0) + 1
             rule_counts = cast(Dict[str, int], stats["rule_counts"])
             rule_counts[finding.rule_id] = rule_counts.get(finding.rule_id, 0) + 1
     else:
@@ -284,7 +285,8 @@ def fix(
 
         for finding in findings:
             severity_counts = cast(Dict[str, int], stats["severity_counts"])
-            severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
+            finding_severity = normalize_severity(finding.severity)
+            severity_counts[finding_severity] = severity_counts.get(finding_severity, 0) + 1
             rule_counts = cast(Dict[str, int], stats["rule_counts"])
             rule_counts[finding.rule_id] = rule_counts.get(finding.rule_id, 0) + 1
             if finding.can_fix:
@@ -454,9 +456,10 @@ def analyze(file_path: str) -> None:
 
         by_severity: Dict[str, List[Finding]] = {}
         for finding in findings:
-            if finding.severity not in by_severity:
-                by_severity[finding.severity] = []
-            by_severity[finding.severity].append(finding)
+            finding_severity = normalize_severity(finding.severity)
+            if finding_severity not in by_severity:
+                by_severity[finding_severity] = []
+            by_severity[finding_severity].append(finding)
 
         for severity in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
             if severity in by_severity:
