@@ -243,7 +243,9 @@ class WorkflowScanner:
                     continue
 
                 rule_severity = normalize_severity(rule_info["severity"])
-                if SEVERITY_LEVELS.index(rule_severity) < SEVERITY_LEVELS.index(normalized_threshold):
+                if SEVERITY_LEVELS.index(rule_severity) < SEVERITY_LEVELS.index(
+                    normalized_threshold
+                ):
                     continue
 
                 try:
