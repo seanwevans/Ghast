@@ -59,13 +59,14 @@ def test_scan_file_matches_rule_engine_findings(patchable_workflow_file):
     expected_findings = engine.scan_workflow(workflow, patchable_workflow_file)
 
     assert [
-        (f.rule_id, f.severity, f.message, f.line_number, f.column, f.can_fix)
-        for f in findings
+        (f.rule_id, f.severity, f.message, f.line_number, f.column, f.can_fix) for f in findings
     ] == [
         (
-            f"rule_error.check_{f.rule_id.split('.', 1)[1]}"
-            if f.rule_id.startswith("rule_error.")
-            else (f.rule_id if f.rule_id.startswith("check_") else f"check_{f.rule_id}"),
+            (
+                f"rule_error.check_{f.rule_id.split('.', 1)[1]}"
+                if f.rule_id.startswith("rule_error.")
+                else (f.rule_id if f.rule_id.startswith("check_") else f"check_{f.rule_id}")
+            ),
             f.severity,
             f.message,
             f.line_number,

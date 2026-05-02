@@ -245,9 +245,11 @@ def test_engine_matches_scanner_findings(action_pinning_workflow_file):
         for f in scanner_findings
     ] == [
         (
-            f"rule_error.check_{f.rule_id.split('.', 1)[1]}"
-            if f.rule_id.startswith("rule_error.")
-            else (f.rule_id if f.rule_id.startswith("check_") else f"check_{f.rule_id}"),
+            (
+                f"rule_error.check_{f.rule_id.split('.', 1)[1]}"
+                if f.rule_id.startswith("rule_error.")
+                else (f.rule_id if f.rule_id.startswith("check_") else f"check_{f.rule_id}")
+            ),
             f.severity,
             f.message,
             f.line_number,
