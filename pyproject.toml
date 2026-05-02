@@ -85,6 +85,7 @@ exclude = ["ghast/tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["ghast/tests"]
+pythonpath = ["."]
 python_files = "test_*.py"
 python_functions = "test_*"
 python_classes = "Test*"
