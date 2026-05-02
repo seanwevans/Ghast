@@ -11,6 +11,7 @@ from pathlib import Path
 from ghast.utils.yaml_handler import (
     load_yaml_with_positions,
     load_yaml_file_with_positions,
+    get_position,
     clean_positions,
     dump_yaml,
     find_yaml_files,
@@ -42,12 +43,10 @@ jobs:
     assert "jobs" in result
     assert "build" in result["jobs"]
 
-    assert "__line__" in result
-    assert "__column__" in result
-    assert "__line__" in result["jobs"]
-    assert "__column__" in result["jobs"]
-    assert "__line__" in result["jobs"]["build"]
-    assert "__column__" in result["jobs"]["build"]
+    assert get_position(result)[0] is not None
+    assert get_position(result)[1] is not None
+    assert get_position(result["jobs"])[0] is not None
+    assert get_position(result["jobs"]["build"])[0] is not None
 
 
 def test_load_yaml_file_with_positions(temp_dir):
@@ -72,10 +71,8 @@ jobs:
     assert "jobs" in result
     assert "build" in result["jobs"]
 
-    assert "__line__" in result
-    assert "__column__" in result
-    assert "__line__" in result["jobs"]
-    assert "__column__" in result["jobs"]
+    assert get_position(result)[0] is not None
+    assert get_position(result["jobs"])[0] is not None
 
 
 def test_clean_positions():
@@ -103,6 +100,26 @@ def test_clean_positions():
     assert cleaned["list"][0]["item"] == "value"
 
 
+def test_literal_line_keys_are_preserved():
+    """Literal __line__/__column__ YAML keys must not be stripped or overwritten."""
+    workflow = load_yaml_with_positions(
+        """
+name: preserve
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    __line__: literal-value
+    __column__: another-literal
+"""
+    )
+
+    job = workflow["jobs"]["build"]
+    assert job["__line__"] == "literal-value"
+    assert job["__column__"] == "another-literal"
+    assert get_position(job)[0] is not None
+
+
 def test_dump_yaml():
     """Test dumping YAML with formatting preservation."""
 
@@ -126,8 +143,8 @@ def test_dump_yaml():
     assert parsed["on"] == "push"
     assert "jobs" in parsed
 
-    assert "__line__" not in parsed
-    assert "__column__" not in parsed
+    assert parsed["__line__"] == 1
+    assert parsed["__column__"] == 0
 
     with tempfile.NamedTemporaryFile(mode="w+", delete=False) as f:
         dump_yaml(obj, f)
@@ -140,7 +157,7 @@ def test_dump_yaml():
 
     parsed = yaml.safe_load(content)
     assert parsed["name"] == "Test Workflow"
-    assert "__line__" not in parsed
+    assert parsed["__line__"] == 1
 
 
 def test_find_yaml_files(temp_dir):

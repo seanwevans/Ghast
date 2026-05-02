@@ -14,6 +14,7 @@ from .yaml_handler import (
     is_github_actions_workflow,
     extract_line_from_file,
     get_element_at_path,
+    get_position,
 )
 
 from .file_handler import (
@@ -81,6 +82,7 @@ __all__ = [
     "is_github_actions_workflow",
     "extract_line_from_file",
     "get_element_at_path",
+    "get_position",
     "is_git_repository",
     "find_repository_root",
     "has_github_workflows",
