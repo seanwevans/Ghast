@@ -331,6 +331,8 @@ class StepRule(Rule):
                         "has no shell specified"
                     ),
                     file_path=file_path,
+                    line_number=step.get("__line__"),
+                    column=step.get("__column__"),
                     remediation="Add 'shell: bash' to this step",
                     can_fix=True,
                 )
@@ -365,6 +367,8 @@ class StepRule(Rule):
                             f"Step {step_idx+1} in job '{job_id}' uses unstable reference: {action}"
                         ),
                         file_path=file_path,
+                        line_number=step.get("__line__"),
+                        column=step.get("__column__"),
                         remediation="Pin the action to a specific commit SHA",
                         can_fix=False,
                         severity="HIGH",  # Unstable references are high risk
@@ -383,6 +387,8 @@ class StepRule(Rule):
                             f"commit SHA: {action}"
                         ),
                         file_path=file_path,
+                        line_number=step.get("__line__"),
+                        column=step.get("__column__"),
                         remediation="Pin to a specific commit SHA for better security",
                         can_fix=False,
                     )

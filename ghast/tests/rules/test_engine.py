@@ -7,8 +7,9 @@ import yaml
 from typing import List
 
 from ghast.rules import RuleEngine, Rule, create_rule_engine
-from ghast.core import Finding
+from ghast.core import Finding, WorkflowScanner
 from ghast.core.scanner import Severity
+from ghast.utils import load_yaml_file_with_positions
 
 
 class MockRule(Rule):
@@ -205,6 +206,34 @@ def test_scan_workflow_with_rule_error():
     assert len(error_findings) > 0
     assert "error_rule" in error_findings[0].rule_id
     assert "Test error" in error_findings[0].message
+
+
+def test_engine_matches_scanner_findings(action_pinning_workflow_file):
+    """RuleEngine findings should match scanner delegation output."""
+
+    workflow = load_yaml_file_with_positions(action_pinning_workflow_file)
+    engine = RuleEngine()
+    scanner = WorkflowScanner()
+
+    engine_findings = engine.scan_workflow(workflow, action_pinning_workflow_file)
+    scanner_findings = scanner.scan_file(action_pinning_workflow_file)
+
+    assert [
+        (f.rule_id, f.severity, f.message, f.line_number, f.column, f.can_fix)
+        for f in scanner_findings
+    ] == [
+        (
+            f"rule_error.check_{f.rule_id.split('.', 1)[1]}"
+            if f.rule_id.startswith("rule_error.")
+            else (f.rule_id if f.rule_id.startswith("check_") else f"check_{f.rule_id}"),
+            f.severity,
+            f.message,
+            f.line_number,
+            f.column,
+            f.can_fix,
+        )
+        for f in engine_findings
+    ]
 
 
 def test_fix_findings():
