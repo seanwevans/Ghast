@@ -142,7 +142,7 @@ class WorkflowScanner:
                 [
                     finding
                     for finding in normalized_findings
-                    if SEVERITY_LEVELS.index(finding.severity)
+                    if SEVERITY_LEVELS.index(normalize_severity(finding.severity))
                     >= SEVERITY_LEVELS.index(normalized_threshold)
                 ]
             )

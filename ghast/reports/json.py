@@ -23,7 +23,7 @@ def finding_to_dict(finding: Finding) -> Dict[str, Any]:
     Returns:
         Dictionary representation of the finding
     """
-    result = {
+    result: Dict[str, Any] = {
         "rule_id": finding.rule_id,
         "severity": finding.severity,
         "message": finding.message,
@@ -88,17 +88,19 @@ def generate_json_summary(stats: Dict[str, Any]) -> str:
         JSON string representation of the summary
     """
 
+    summary_data: Dict[str, Any] = {
+        "total_files": stats.get("total_files", 0),
+        "total_findings": stats.get("total_findings", 0),
+        "severity_counts": stats.get("severity_counts", {}),
+        "rule_counts": stats.get("rule_counts", {}),
+        "fixable_findings": stats.get("fixable_findings", 0),
+        "scan_duration_seconds": None,
+    }
+
     summary: Dict[str, Any] = {
         "ghast_version": __version__,
         "generated_at": datetime.now().isoformat(),
-        "summary": {
-            "total_files": stats.get("total_files", 0),
-            "total_findings": stats.get("total_findings", 0),
-            "severity_counts": stats.get("severity_counts", {}),
-            "rule_counts": stats.get("rule_counts", {}),
-            "fixable_findings": stats.get("fixable_findings", 0),
-            "scan_duration_seconds": None,
-        },
+        "summary": summary_data,
     }
 
     start_time = stats.get("start_time")
