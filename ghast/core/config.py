@@ -5,6 +5,7 @@ This module handles loading, validating, and managing configuration for the ghas
 """
 
 import copy
+import difflib
 import os
 import yaml
 from typing import Any, Dict, Optional, List, cast
@@ -207,10 +208,19 @@ def validate_config(config: Dict[str, Any]) -> None:
         "default_action_versions",
     }
 
+    allowed_keys = set(DEFAULT_CONFIG.keys()) | allowed_sections
+
     # Check for unknown top-level keys in the provided config
     for key in config.keys():
-        if key not in DEFAULT_CONFIG and key not in allowed_sections:
-            raise ConfigurationError(f"Unknown configuration option '{key}'")
+        if key not in allowed_keys:
+            suggestions = difflib.get_close_matches(key, sorted(allowed_keys), n=3, cutoff=0.5)
+
+            message = f"Unknown configuration option '{key}'."
+            if suggestions:
+                message += f" Did you mean: {', '.join(suggestions)}?"
+            message += " See examples/ghast.yml for supported options."
+
+            raise ConfigurationError(message)
 
     for rule_key in DEFAULT_CONFIG.keys():
         if (
