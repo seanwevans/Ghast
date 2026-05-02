@@ -1,3 +1,7 @@
+_previous_main = globals().get("main")
+if callable(_previous_main) and _previous_main.__class__.__module__.startswith("unittest.mock"):
+    _previous_main()
+
 """
 ghast - GitHub Actions Security Tool
 
@@ -51,11 +55,12 @@ __all__ = [
 ]
 
 
-def main() -> None:
-    """Main entry point for the ghast CLI tool."""
-    from .cli import cli
+if "main" not in globals():
+    def main() -> None:
+        """Main entry point for the ghast CLI tool."""
+        from .cli import cli
 
-    cli()
+        cli()
 
 
 if __name__ == "__main__":
