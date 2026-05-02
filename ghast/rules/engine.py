@@ -7,7 +7,7 @@ This module provides the core rule engine that manages and runs security rules.
 from typing import Any, Dict, List, Optional
 
 from ..core import SEVERITY_LEVELS, Finding
-from ..core.scanner import Severity
+from ..core.scanner import Severity, normalize_severity
 from .base import Rule
 from .best_practices import (
     ContinueOnErrorRule,
@@ -96,9 +96,7 @@ class RuleEngine:
                 value = None
 
             if value is not None:
-                if isinstance(value, Severity):
-                    value = value.value
-                rule.severity = value
+                rule.severity = normalize_severity(value)
 
     def register_rule(self, rule: Rule) -> None:
         """
@@ -201,19 +199,13 @@ class RuleEngine:
 
         normalized_threshold: Optional[str] = None
         if severity_threshold is not None:
-            normalized_threshold = (
-                severity_threshold.value
-                if isinstance(severity_threshold, Severity)
-                else severity_threshold
-            )
+            normalized_threshold = normalize_severity(severity_threshold)
 
         for rule in self.rules:
             if not rule.enabled:
                 continue
 
-            rule_severity = (
-                rule.severity.value if isinstance(rule.severity, Severity) else rule.severity
-            )
+            rule_severity = normalize_severity(rule.severity)
 
             if normalized_threshold and (
                 SEVERITY_LEVELS.index(rule_severity) < SEVERITY_LEVELS.index(normalized_threshold)

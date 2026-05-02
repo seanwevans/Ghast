@@ -21,6 +21,7 @@ from .core import (
     load_config,
     scan_repository,
 )
+from .core.scanner import normalize_severity
 from .reports import generate_full_report, print_report, save_report
 from .rules import create_rule_engine
 from .utils.banner import _BANNER
@@ -55,6 +56,8 @@ def _prepare_scan(
         A tuple of (findings, stats, config_data) where config_data is the
         configuration dictionary used for scanning.
     """
+
+    severity_threshold = normalize_severity(severity_threshold)
 
     if config:
         config_path = Path(config)
@@ -207,7 +210,8 @@ def scan(
 
     from .core import SEVERITY_LEVELS
 
-    threshold_index = SEVERITY_LEVELS.index(severity_threshold)
+    normalized_threshold = normalize_severity(severity_threshold)
+    threshold_index = SEVERITY_LEVELS.index(normalized_threshold)
     sev_counts = cast(Dict[str, int], stats.get("severity_counts", {}))
     severe_findings = sum(sev_counts.get(lvl, 0) for lvl in SEVERITY_LEVELS[threshold_index:])
 
