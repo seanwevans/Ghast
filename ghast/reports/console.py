@@ -67,7 +67,6 @@ def colorize(text: str, color: str) -> str:
     if os.environ.get("NO_COLOR"):
         return text
 
-
     color_map = {
         "bright_red": "bright_red",
         "bright_green": "bright_green",
@@ -157,7 +156,9 @@ def format_findings_by_file(
     output = ""
     for file_path in sorted(findings_by_file):
         file_findings = findings_by_file[file_path]
-        output += f"\n{(colorize('File: ' + file_path, 'bold') if use_color else 'File: ' + file_path)}\n"
+        output += (
+            f"\n{(colorize('File: ' + file_path, 'bold') if use_color else 'File: ' + file_path)}\n"
+        )
 
         findings_by_severity: Dict[str, List[Finding]] = {}
         for level in SEVERITY_LEVELS:
