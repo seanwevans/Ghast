@@ -549,24 +549,24 @@ class WorkflowScanner:
                 current_line, current_column = get_position(node)
                 current_line = current_line if current_line is not None else line
                 current_column = current_column if current_column is not None else column
-                for key, value in node.items():
-                    value_line, value_column = get_position(value)
-                    walk(
-                        value,
-                        value_line if value_line is not None else current_line,
-                        value_column if value_column is not None else current_column,
-                    )
+                for _, value in node.items():
+                    next_line, next_column = current_line, current_column
+                    if isinstance(value, (dict, list)):
+                        value_line, value_column = get_position(value)
+                        next_line = value_line if value_line is not None else current_line
+                        next_column = value_column if value_column is not None else current_column
+                    walk(value, next_line, next_column)
             elif isinstance(node, list):
                 current_line, current_column = get_position(node)
                 current_line = current_line if current_line is not None else line
                 current_column = current_column if current_column is not None else column
                 for item in node:
-                    item_line, item_column = get_position(item)
-                    walk(
-                        item,
-                        item_line if item_line is not None else current_line,
-                        item_column if item_column is not None else current_column,
-                    )
+                    next_line, next_column = current_line, current_column
+                    if isinstance(item, (dict, list)):
+                        item_line, item_column = get_position(item)
+                        next_line = item_line if item_line is not None else current_line
+                        next_column = item_column if item_column is not None else current_column
+                    walk(item, next_line, next_column)
             else:
                 if not isinstance(node, str):
                     return
@@ -640,24 +640,24 @@ class WorkflowScanner:
                 current_line, current_column = get_position(node)
                 current_line = current_line if current_line is not None else line
                 current_column = current_column if current_column is not None else column
-                for key, value in node.items():
-                    value_line, value_column = get_position(value)
-                    walk(
-                        value,
-                        value_line if value_line is not None else current_line,
-                        value_column if value_column is not None else current_column,
-                    )
+                for _, value in node.items():
+                    next_line, next_column = current_line, current_column
+                    if isinstance(value, (dict, list)):
+                        value_line, value_column = get_position(value)
+                        next_line = value_line if value_line is not None else current_line
+                        next_column = value_column if value_column is not None else current_column
+                    walk(value, next_line, next_column)
             elif isinstance(node, list):
                 current_line, current_column = get_position(node)
                 current_line = current_line if current_line is not None else line
                 current_column = current_column if current_column is not None else column
                 for item in node:
-                    item_line, item_column = get_position(item)
-                    walk(
-                        item,
-                        item_line if item_line is not None else current_line,
-                        item_column if item_column is not None else current_column,
-                    )
+                    next_line, next_column = current_line, current_column
+                    if isinstance(item, (dict, list)):
+                        item_line, item_column = get_position(item)
+                        next_line = item_line if item_line is not None else current_line
+                        next_column = item_column if item_column is not None else current_column
+                    walk(item, next_line, next_column)
             elif isinstance(node, str):
                 if "${{" not in node or "inputs." not in node:
                     return
