@@ -275,10 +275,12 @@ def fix(
         scanner = WorkflowScanner(strict=strict, config=config_data)
         findings = scanner.scan_file(str(path), severity_threshold)
 
+        from .core import SEVERITY_LEVELS
+
         stats: Dict[str, Any] = {
             "total_files": 1,
             "total_findings": len(findings),
-            "severity_counts": {},
+            "severity_counts": {level: 0 for level in SEVERITY_LEVELS},
             "rule_counts": {},
             "fixable_findings": 0,
         }
