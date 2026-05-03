@@ -6,7 +6,7 @@ discovering security issues and providing findings.
 """
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from enum import Enum
@@ -164,18 +164,16 @@ class WorkflowScanner:
         """Normalize engine rule IDs to scanner-compatible check_* naming."""
         normalized: List[Finding] = []
         for finding in findings:
+            normalized_rule_id = finding.rule_id
+
             if finding.rule_id.startswith("rule_error."):
                 _, _, raw_rule = finding.rule_id.partition(".")
-                if raw_rule.startswith("check_"):
-                    normalized.append(finding)
-                else:
-                    finding.rule_id = f"rule_error.check_{raw_rule}"
-                    normalized.append(finding)
-            elif finding.rule_id.startswith("check_"):
-                normalized.append(finding)
-            else:
-                finding.rule_id = f"check_{finding.rule_id}"
-                normalized.append(finding)
+                if not raw_rule.startswith("check_"):
+                    normalized_rule_id = f"rule_error.check_{raw_rule}"
+            elif not finding.rule_id.startswith("check_"):
+                normalized_rule_id = f"check_{finding.rule_id}"
+
+            normalized.append(replace(finding, rule_id=normalized_rule_id))
         return normalized
 
     def scan_directory(
