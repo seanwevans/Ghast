@@ -324,8 +324,17 @@ class EnvironmentInjectionRule(StepRule):
                     continue
 
                 if "uses" in step and step["uses"].startswith("actions/checkout"):
-                    checkout_step_idx = step_idx
-                    break
+                    if (
+                        "with" not in step
+                        or "persist-credentials" not in step["with"]                        
+                        or step["with"]["persist-credentials"] != False
+                    ):
+                        findings.append(
+                            self.create_finding(
+                                message=(
+                                    f"actions/checkout in job '{job_id}' step {step_idx+1} "
+                                    "does not disable credential persistence"
+                                ),
 
             if checkout_step_idx is not None:
                 for step_idx, step in enumerate(steps):
