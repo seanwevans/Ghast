@@ -674,7 +674,18 @@ class WorkflowScanner:
         if not references:
             return findings
 
-        for input_name, line, column in sorted(references):
+        sorted_references = sorted(
+            references,
+            key=lambda ref: (
+                ref[0],
+                ref[1] is None,
+                ref[1] if ref[1] is not None else -1,
+                ref[2] is None,
+                ref[2] if ref[2] is not None else -1,
+            ),
+        )
+
+        for input_name, line, column in sorted_references:
             if inputs_section is None:
                 message = f"Reusable workflow references input '{input_name}' but 'on.workflow_call.inputs' is not defined"
             elif input_name not in defined_inputs:
