@@ -307,6 +307,41 @@ jobs:
     assert finding.column is not None
 
 
+def test_check_reusable_inputs_handles_mixed_position_types(monkeypatch):
+    """Sorting input references should not fail when some positions are missing."""
+
+    workflow = {
+        "on": {"workflow_call": {"inputs": {"existing": {"required": True}}}},
+        "jobs": {
+            "build": {
+                "steps": [
+                    {"run": 'echo "${{ inputs.missing }}"'},
+                    {"run": 'echo "${{ inputs.missing }}"'},
+                ]
+            }
+        },
+    }
+
+    first_step = workflow["jobs"]["build"]["steps"][0]
+    second_step = workflow["jobs"]["build"]["steps"][1]
+
+    def fake_get_position(node):
+        if node is first_step:
+            return (12, 3)
+        if node is second_step:
+            return (None, None)
+        return (None, None)
+
+    monkeypatch.setattr("ghast.core.scanner.get_position", fake_get_position)
+
+    scanner = WorkflowScanner()
+    findings = scanner.check_reusable_inputs(workflow, "reusable.yml")
+
+    assert len(findings) == 2
+    assert all(f.rule_id == "check_reusable_inputs" for f in findings)
+    assert all("missing" in f.message for f in findings)
+
+
 def test_check_ppe_vulnerabilities(insecure_workflow_file):
     """Test check_ppe_vulnerabilities rule."""
     scanner = WorkflowScanner()
