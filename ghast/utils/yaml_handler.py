@@ -8,7 +8,7 @@ including position-aware parsing and formatting preservation.
 import yaml
 from typing import Any, Dict, List, Optional, TextIO, Sequence, Union, cast
 from pathlib import Path
-from yaml.nodes import Node
+from yaml.nodes import MappingNode, Node
 
 
 class LineColumnLoader(yaml.SafeLoader):
@@ -63,24 +63,39 @@ def get_position(node_or_path: Any, root: Optional[Any] = None) -> Position:
     return (None, None)
 
 
-# PyYAML follows the YAML 1.1 specification which treats certain plain
-# strings such as ``on``, ``off``, ``yes`` and ``no`` as booleans.  In the
-# context of GitHub Actions workflows these words are frequently used as
-# keys (e.g. ``on`` to specify workflow triggers).  When parsed with the
-# default resolver the key ``on`` would therefore be converted to the
-# boolean ``True`` which results in missing keys when later accessed via
-# ``dict['on']``.  This behaviour caused `KeyError` failures in the YAML
-# handler tests.
-#
-# To ensure these values are treated as plain strings we remove the
-# implicit boolean resolver from our custom loader.  By filtering out the
-# ``tag:yaml.org,2002:bool`` entries we effectively opt-in to YAML 1.2 style
-# resolution for these values while still leveraging the SafeLoader for the
-# rest of the parsing logic.
-for first_char, resolvers in list(LineColumnLoader.yaml_implicit_resolvers.items()):
-    LineColumnLoader.yaml_implicit_resolvers[first_char] = [
-        (tag, regexp) for tag, regexp in resolvers if tag != "tag:yaml.org,2002:bool"
-    ]
+# PyYAML follows the YAML 1.1 specification and resolves plain values such
+# as ``on``, ``off``, ``yes`` and ``no`` to booleans. In GitHub Actions
+# workflows these tokens commonly appear as mapping keys (for example the
+# top-level ``on`` section). We keep normal boolean resolution for values,
+# but for keys we preserve the original string token for these four words.
+_BOOL_KEY_TOKENS = {"on", "off", "yes", "no"}
+
+
+def _construct_mapping_with_preserved_bool_keys(
+    loader: LineColumnLoader, node: MappingNode, deep: bool = False
+) -> Dict[Any, Any]:
+    loader.flatten_mapping(node)
+
+    mapping: Dict[Any, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if (
+            isinstance(key, bool)
+            and key_node.tag == "tag:yaml.org,2002:bool"
+            and key_node.value in _BOOL_KEY_TOKENS
+        ):
+            key = key_node.value
+
+        value = loader.construct_object(value_node, deep=deep)
+        mapping[key] = value
+
+    return mapping
+
+
+LineColumnLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_mapping_with_preserved_bool_keys,
+)
 
 
 class FormattingPreservingDumper(yaml.SafeDumper):
