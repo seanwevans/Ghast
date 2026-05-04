@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 from ..core import Finding
+from ..utils.yaml_handler import get_position
 
 
 def _is_false(value: Any) -> bool:
@@ -347,8 +348,8 @@ class StepRule(Rule):
                         "has no shell specified"
                     ),
                     file_path=file_path,
-                    line_number=step.get("__line__"),
-                    column=step.get("__column__"),
+                    line_number=get_position(step)[0],
+                    column=get_position(step)[1],
                     remediation="Add 'shell: bash' to this step",
                     can_fix=True,
                 )
@@ -383,8 +384,8 @@ class StepRule(Rule):
                             f"Step {step_idx+1} in job '{job_id}' uses unstable reference: {action}"
                         ),
                         file_path=file_path,
-                        line_number=step.get("__line__"),
-                        column=step.get("__column__"),
+                        line_number=get_position(step)[0],
+                        column=get_position(step)[1],
                         remediation="Pin the action to a specific commit SHA",
                         can_fix=False,
                         severity="HIGH",  # Unstable references are high risk
@@ -403,8 +404,8 @@ class StepRule(Rule):
                             f"commit SHA: {action}"
                         ),
                         file_path=file_path,
-                        line_number=step.get("__line__"),
-                        column=step.get("__column__"),
+                        line_number=get_position(step)[0],
+                        column=get_position(step)[1],
                         remediation="Pin to a specific commit SHA for better security",
                         can_fix=False,
                     )
