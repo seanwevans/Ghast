@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List
 
 from ..core import Finding
-from .base import Rule, StepRule, TokenRule, WorkflowRule
+from .base import Rule, StepRule, TokenRule, WorkflowRule, _is_false
 
 
 class PermissionsRule(WorkflowRule):
@@ -327,7 +327,7 @@ class EnvironmentInjectionRule(StepRule):
                     if (
                         "with" not in step
                         or "persist-credentials" not in step["with"]
-                        or step["with"]["persist-credentials"] is not False
+                        or not _is_false(step["with"]["persist-credentials"])
                     ):
                         findings.append(
                             self.create_finding(
@@ -418,7 +418,7 @@ class TokenSecurityRule(TokenRule):
                     if (
                         "with" not in step
                         or "persist-credentials" not in step["with"]
-                        or step["with"]["persist-credentials"] is not False
+                        or not _is_false(step["with"]["persist-credentials"])
                     ):
                         findings.append(
                             self.create_finding(
