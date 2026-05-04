@@ -5,6 +5,7 @@ This module provides enhanced YAML handling capabilities for ghast,
 including position-aware parsing and formatting preservation.
 """
 
+import weakref
 import yaml
 from typing import Any, Dict, List, Optional, TextIO, Sequence, Union, cast
 from pathlib import Path
@@ -16,8 +17,19 @@ class LineColumnLoader(yaml.SafeLoader):
 
 
 Position = tuple[Optional[int], Optional[int]]
+
+
+class PositionTrackedDict(dict[Any, Any]):
+    """Dict subtype so loaded roots can be weak-referenced."""
+
+
+class PositionTrackedList(list[Any]):
+    """List subtype for consistent YAML container construction."""
+
+
 _positions_by_root_id: Dict[int, Dict[int, Position]] = {}
 _paths_by_root_id: Dict[int, Dict[tuple[Union[str, int], ...], Position]] = {}
+_root_refs: Dict[int, weakref.ReferenceType[PositionTrackedDict]] = {}
 
 
 def _build_position_indexes(
@@ -50,14 +62,14 @@ def _build_position_indexes(
 
 def get_position(node_or_path: Any, root: Optional[Any] = None) -> Position:
     """Get (line, column) metadata for a parsed YAML object or path."""
-    if root is not None:
+    if isinstance(root, PositionTrackedDict):
         root_id = id(root)
         if isinstance(node_or_path, (tuple, list)):
             return _paths_by_root_id.get(root_id, {}).get(tuple(node_or_path), (None, None))
         return _positions_by_root_id.get(root_id, {}).get(id(node_or_path), (None, None))
 
-    # Prefer the most recently parsed root to avoid stale matches when Python
-    # reuses object IDs across different YAML loads.
+    # Keep only live roots to avoid stale matches when CPython reuses IDs.
+    _cleanup_dead_roots()
     for positions in reversed(list(_positions_by_root_id.values())):
         found = positions.get(id(node_or_path))
         if found is not None:
@@ -78,7 +90,7 @@ def _construct_mapping_with_preserved_bool_keys(
 ) -> Dict[Any, Any]:
     loader.flatten_mapping(node)
 
-    mapping: Dict[Any, Any] = {}
+    mapping: PositionTrackedDict = PositionTrackedDict()
     for key_node, value_node in node.value:
         key = loader.construct_object(key_node, deep=deep)
         if (
@@ -98,6 +110,10 @@ LineColumnLoader.add_constructor(
     yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
     _construct_mapping_with_preserved_bool_keys,
 )
+LineColumnLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_SEQUENCE_TAG,
+    lambda loader, node: PositionTrackedList(loader.construct_sequence(node)),
+)
 
 
 class FormattingPreservingDumper(yaml.SafeDumper):
@@ -105,6 +121,18 @@ class FormattingPreservingDumper(yaml.SafeDumper):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+
+
+def _cleanup_root(root_id: int) -> None:
+    _positions_by_root_id.pop(root_id, None)
+    _paths_by_root_id.pop(root_id, None)
+    _root_refs.pop(root_id, None)
+
+
+def _cleanup_dead_roots() -> None:
+    dead_root_ids = [root_id for root_id, root_ref in _root_refs.items() if root_ref() is None]
+    for root_id in dead_root_ids:
+        _cleanup_root(root_id)
 
 
 def load_yaml_with_positions(content: str) -> Dict[str, Any]:
@@ -120,11 +148,14 @@ def load_yaml_with_positions(content: str) -> Dict[str, Any]:
     Raises:
         yaml.YAMLError: If YAML parsing fails
     """
-    loaded = cast(Dict[str, Any], yaml.load(content, Loader=LineColumnLoader))
+    loaded = cast(PositionTrackedDict, yaml.load(content, Loader=LineColumnLoader))
     node_tree = cast(Node, yaml.compose(content, Loader=LineColumnLoader))
     by_id, by_path = _build_position_indexes(node_tree, loaded)
-    _positions_by_root_id[id(loaded)] = by_id
-    _paths_by_root_id[id(loaded)] = by_path
+    root_id = id(loaded)
+    _positions_by_root_id[root_id] = by_id
+    _paths_by_root_id[root_id] = by_path
+    _root_refs[root_id] = weakref.ref(loaded, lambda _ref, rid=root_id: _cleanup_root(rid))
+    _cleanup_dead_roots()
     return loaded
 
 
