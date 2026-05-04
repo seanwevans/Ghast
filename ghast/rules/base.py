@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 from ..core import Finding
+from ..utils.yaml_handler import get_position
 
 
 def _is_false(value: Any) -> bool:
@@ -249,6 +250,8 @@ class JobRule(Rule):
                 self.create_finding(
                     message=f"Job '{job_id}' has {len(steps)} steps but no timeout-minutes set",
                     file_path=file_path,
+                    line_number=get_position(job)[0],
+                    column=get_position(job)[1],
                     remediation=f"Add 'timeout-minutes: 15' to job '{job_id}'",
                     can_fix=True,
                 )
@@ -341,8 +344,8 @@ class StepRule(Rule):
                         "has no shell specified"
                     ),
                     file_path=file_path,
-                    line_number=step.get("__line__"),
-                    column=step.get("__column__"),
+                    line_number=get_position(step)[0],
+                    column=get_position(step)[1],
                     remediation="Add 'shell: bash' to this step",
                     can_fix=True,
                 )
