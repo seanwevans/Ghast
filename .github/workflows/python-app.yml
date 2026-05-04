@@ -69,7 +69,6 @@ jobs:
       with:
         python-version: '3.10'
         cache: 'pip'
-        persist-credentials: false
         
     - name: Install dependencies
       run: |
@@ -156,7 +155,6 @@ jobs:
       with:
         python-version: '3.10'
         cache: 'pip'
-        persist-credentials: false
 
     - name: Install build dependencies
       run: |
@@ -174,4 +172,3 @@ jobs:
       with:
         user: __token__        
         password: ${{ secrets.PYPI_API_TOKEN }}
-        persist-credentials: false
