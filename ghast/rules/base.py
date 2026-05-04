@@ -12,6 +12,16 @@ from typing import Any, Dict, List, Optional
 from ..core import Finding
 
 
+def _is_false(value: Any) -> bool:
+    """Return True when value semantically represents false."""
+    return value is False or (isinstance(value, str) and value.lower() == "false")
+
+
+def _is_true(value: Any) -> bool:
+    """Return True when value semantically represents true."""
+    return value is True or (isinstance(value, str) and value.lower() == "true")
+
+
 class Rule(ABC):
     """Base class for all ghast security rules"""
 

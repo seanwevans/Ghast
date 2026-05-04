@@ -9,7 +9,7 @@ import re
 from typing import Any, Dict, List
 
 from ..core import Finding
-from .base import JobRule, Rule, StepRule, WorkflowRule
+from .base import JobRule, Rule, StepRule, WorkflowRule, _is_true
 
 
 class TimeoutRule(JobRule):
@@ -264,7 +264,7 @@ class ContinueOnErrorRule(Rule):
         for job_id, job in jobs.items():
             if job_id in ("__line__", "__column__") or not isinstance(job, dict):
                 continue
-            if job.get("continue-on-error") is True:
+            if _is_true(job.get("continue-on-error")):
                 findings.append(
                     self.create_finding(
                         message=f"Job '{job_id}' has 'continue-on-error: true'",
@@ -279,7 +279,7 @@ class ContinueOnErrorRule(Rule):
                 if not isinstance(step, dict):
                     continue
 
-                if step.get("continue-on-error") is True:
+                if _is_true(step.get("continue-on-error")):
                     findings.append(
                         self.create_finding(
                             message=f"Step {step_idx+1} in job '{job_id}' has 'continue-on-error: true'",
