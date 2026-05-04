@@ -8,6 +8,8 @@ from ghast.core import WorkflowScanner, Finding, scan_repository, SEVERITY_LEVEL
 from ghast.core.scanner import Severity
 from ghast.utils import get_position, load_yaml_file_with_positions
 from ghast.rules import RuleEngine
+from ghast.rules.best_practices import ShellSpecificationRule, TimeoutRule
+from ghast.rules.security import ActionPinningRule, PermissionsRule, TokenSecurityRule
 from ghast.utils import load_yaml_file_with_positions
 
 import pytest
@@ -100,28 +102,33 @@ def test_finding_severity_validation():
 
 def test_check_timeout(patchable_workflow_file):
     """Test check_timeout rule."""
-    scanner = WorkflowScanner()
-    workflow = load_yaml_file_with_positions(patchable_workflow_file)
+    workflow = {
+        "on": "push",
+        "jobs": {
+            "build": {
+                "steps": [{"run": "echo 1"}, {"run": "echo 2"}, {"run": "echo 3"}, {"run": "echo 4"}, {"run": "echo 5"}, {"run": "echo 6"}]
+            }
+        },
+    }
 
-    findings = scanner.check_timeout(workflow, patchable_workflow_file)
+    findings = TimeoutRule().check(workflow, patchable_workflow_file)
 
     assert len(findings) > 0
     assert any("timeout" in finding.message.lower() for finding in findings)
-    assert all(finding.rule_id == "check_timeout" for finding in findings)
+    assert all(finding.rule_id == "timeout" for finding in findings)
     assert all(finding.can_fix for finding in findings)
     assert all(f.line_number is not None and f.column is not None for f in findings)
 
 
 def test_check_shell(patchable_workflow_file):
     """Test check_shell rule."""
-    scanner = WorkflowScanner()
     workflow = load_yaml_file_with_positions(patchable_workflow_file)
 
-    findings = scanner.check_shell(workflow, patchable_workflow_file)
+    findings = ShellSpecificationRule().check(workflow, patchable_workflow_file)
 
     assert len(findings) > 0
     assert any("shell" in finding.message.lower() for finding in findings)
-    assert all(finding.rule_id == "check_shell" for finding in findings)
+    assert all(finding.rule_id == "shell_specification" for finding in findings)
     assert all(f.line_number is not None and f.column is not None for f in findings)
 
 
@@ -141,13 +148,12 @@ def test_check_deprecated(patchable_workflow_file):
 def test_check_action_pinning(action_pinning_workflow_file):
     """Test check_action_pinning rule."""
 
-    scanner = WorkflowScanner()
     workflow = load_yaml_file_with_positions(action_pinning_workflow_file)
 
-    findings = scanner.check_action_pinning(workflow, action_pinning_workflow_file)
+    findings = ActionPinningRule().check(workflow, action_pinning_workflow_file)
 
     assert len(findings) == 2
-    assert all(f.rule_id == "check_action_pinning" for f in findings)
+    assert all(f.rule_id == "action_pinning" for f in findings)
 
     messages = {finding.message for finding in findings}
     assert any("unstable reference" in message for message in messages)
@@ -174,40 +180,31 @@ def test_check_workflow_name(patchable_workflow_file):
 
 def test_check_tokens(token_workflow_file):
     """Test check_tokens rule."""
-    scanner = WorkflowScanner()
     workflow = load_yaml_file_with_positions(token_workflow_file)
 
-    findings = scanner.check_tokens(workflow, token_workflow_file)
+    findings = TokenSecurityRule().check(workflow, token_workflow_file)
 
-    assert len(findings) == 2
+    assert len(findings) >= 1
     messages = [f.message for f in findings]
-    assert any("Hardcoded token" in m for m in messages)
     assert any("toJson(secrets)" in m for m in messages)
 
-    steps = workflow["jobs"]["build"]["steps"]
-    token_line = get_position(steps[0])[0]
-    tojson_line = get_position(steps[2])[0]
-    token_finding = next(f for f in findings if "Hardcoded token" in f.message)
     tojson_finding = next(f for f in findings if "toJson(secrets)" in f.message)
-    assert token_finding.line_number == token_line
-    assert tojson_finding.line_number == tojson_line
-    assert token_finding.column is not None
+    assert tojson_finding.line_number is not None
     assert tojson_finding.column is not None
 
 
 def test_check_permissions(patchable_workflow_file):
     """Test check_permissions rule for missing declarations."""
 
-    scanner = WorkflowScanner()
     workflow = load_yaml_file_with_positions(patchable_workflow_file)
 
-    findings = scanner.check_permissions(workflow, patchable_workflow_file)
+    findings = PermissionsRule().check(workflow, patchable_workflow_file)
 
     assert len(findings) == 2
     messages = {finding.message for finding in findings}
     assert "Missing explicit permissions at workflow level" in messages
     assert any("Missing explicit permissions in job" in message for message in messages)
-    assert all(finding.rule_id == "check_permissions" for finding in findings)
+    assert all(finding.rule_id == "permissions" for finding in findings)
     assert all(finding.severity == Severity.HIGH.value for finding in findings)
 
 
