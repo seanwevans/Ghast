@@ -222,7 +222,7 @@ jobs:
 
 
 def test_check_reusable_inputs_missing_mapping(temp_dir):
-    """Referencing inputs without declaring the inputs mapping should be flagged."""
+    """Referencing inputs without declaring on.workflow_call.inputs should be flagged."""
 
     workflow_path = _write_temp_workflow(
         temp_dir,
@@ -241,7 +241,8 @@ jobs:
 
     findings = _run_rule("reusable_workflow_inputs", workflow, str(workflow_path))
 
-    assert findings == []
+    assert len(findings) == 1
+    assert "does not define on.workflow_call.inputs" in findings[0].message
 
 
 def test_check_reusable_inputs_missing_declaration(temp_dir):
@@ -267,7 +268,8 @@ jobs:
 
     findings = _run_rule("reusable_workflow_inputs", workflow, str(workflow_path))
 
-    assert findings == []
+    assert len(findings) == 1
+    assert "undeclared input 'missing'" in findings[0].message
 
 
 def test_check_reusable_inputs_handles_mixed_position_types(monkeypatch):
@@ -299,7 +301,8 @@ def test_check_reusable_inputs_handles_mixed_position_types(monkeypatch):
 
     findings = _run_rule("reusable_workflow_inputs", workflow, "reusable.yml")
 
-    assert findings == []
+    assert len(findings) == 1
+    assert "undeclared input 'missing'" in findings[0].message
 
 
 def test_check_ppe_vulnerabilities(insecure_workflow_file):
