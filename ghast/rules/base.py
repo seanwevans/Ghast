@@ -105,19 +105,13 @@ class Rule(ABC):
         Returns:
             Finding object
         """
-        normalized_line = line_number
-        normalized_column = column
-        if normalized_line is None and "Missing workflow name" not in message:
-            normalized_line = 1
-            normalized_column = 1 if normalized_column is None else normalized_column
-
         return Finding(
             rule_id=self.rule_id,
             severity=severity or self.severity,
             message=message,
             file_path=file_path,
-            line_number=normalized_line,
-            column=normalized_column,
+            line_number=line_number,
+            column=column,
             remediation=remediation or self.remediation,
             context=context or {},
             can_fix=can_fix if can_fix is not None else self.can_fix,
