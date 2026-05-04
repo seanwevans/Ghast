@@ -56,7 +56,9 @@ def get_position(node_or_path: Any, root: Optional[Any] = None) -> Position:
             return _paths_by_root_id.get(root_id, {}).get(tuple(node_or_path), (None, None))
         return _positions_by_root_id.get(root_id, {}).get(id(node_or_path), (None, None))
 
-    for positions in _positions_by_root_id.values():
+    # Prefer the most recently parsed root to avoid stale matches when Python
+    # reuses object IDs across different YAML loads.
+    for positions in reversed(list(_positions_by_root_id.values())):
         found = positions.get(id(node_or_path))
         if found is not None:
             return found

@@ -9,6 +9,7 @@ import re
 from typing import Any, Dict, List
 
 from ..core import Finding
+from ..utils.yaml_handler import get_position
 from .base import JobRule, Rule, StepRule, WorkflowRule, _is_true
 
 
@@ -197,8 +198,8 @@ class DeprecatedActionsRule(StepRule):
                                 self.create_finding(
                                     message=f"Deprecated action '{action}' in job '{job_id}' step {step_idx+1}",
                                     file_path=file_path,
-                                    line_number=step.get("__line__"),
-                                    column=step.get("__column__"),
+                                    line_number=get_position(step)[0],
+                                    column=get_position(step)[1],
                                     remediation=f"Update to {replacement}",
                                     can_fix=True,
                                     context={
@@ -269,8 +270,8 @@ class ContinueOnErrorRule(Rule):
                     self.create_finding(
                         message=f"Job '{job_id}' has 'continue-on-error: true'",
                         file_path=file_path,
-                        line_number=job.get("__line__"),
-                        column=job.get("__column__"),
+                        line_number=get_position(job)[0],
+                        column=get_position(job)[1],
                     )
                 )
 
@@ -284,8 +285,8 @@ class ContinueOnErrorRule(Rule):
                         self.create_finding(
                             message=f"Step {step_idx+1} in job '{job_id}' has 'continue-on-error: true'",
                             file_path=file_path,
-                            line_number=step.get("__line__"),
-                            column=step.get("__column__"),
+                            line_number=get_position(step)[0],
+                            column=get_position(step)[1],
                         )
                     )
 
@@ -318,8 +319,8 @@ class ReusableWorkflowRule(Rule):
                         self.create_finding(
                             message=f"Reusable workflow in job '{job_id}' uses 'with' without defining 'inputs'",
                             file_path=file_path,
-                            line_number=job.get("__line__"),
-                            column=job.get("__column__"),
+                            line_number=get_position(job)[0],
+                            column=get_position(job)[1],
                         )
                     )
 
