@@ -8,6 +8,7 @@ import re
 from typing import Any, Dict, List
 
 from ..core import Finding
+from ..utils.yaml_handler import get_position
 from .base import Rule, StepRule, TokenRule, WorkflowRule
 
 
@@ -54,8 +55,8 @@ class PermissionsRule(WorkflowRule):
                 self.create_finding(
                     message="Missing explicit permissions at workflow level",
                     file_path=file_path,
-                    line_number=workflow.get("__line__") or 1,
-                    column=workflow.get("__column__") or 1,
+                    line_number=get_position(workflow)[0] or 1,
+                    column=get_position(workflow)[1] or 1,
                     can_fix=True,
                 )
             )
@@ -64,8 +65,8 @@ class PermissionsRule(WorkflowRule):
                 self.create_finding(
                     message="Overly permissive workflow permissions (write-all)",
                     file_path=file_path,
-                    line_number=workflow.get("__line__") or 1,
-                    column=workflow.get("__column__") or 1,
+                    line_number=get_position(workflow)[0] or 1,
+                    column=get_position(workflow)[1] or 1,
                 )
             )
 
@@ -84,8 +85,8 @@ class PermissionsRule(WorkflowRule):
                 self.create_finding(
                     message=f"Missing explicit permissions in job '{job_id}'",
                     file_path=file_path,
-                    line_number=job.get("__line__") or 1,
-                    column=job.get("__column__") or 1,
+                    line_number=get_position(job)[0] or 1,
+                    column=get_position(job)[1] or 1,
                     can_fix=True,
                 )
             )
@@ -94,8 +95,8 @@ class PermissionsRule(WorkflowRule):
                 self.create_finding(
                     message=f"Job '{job_id}' has overly permissive permissions (write-all)",
                     file_path=file_path,
-                    line_number=job.get("__line__") or 1,
-                    column=job.get("__column__") or 1,
+                    line_number=get_position(job)[0] or 1,
+                    column=get_position(job)[1] or 1,
                 )
             )
 
@@ -336,8 +337,8 @@ class EnvironmentInjectionRule(StepRule):
                                     "does not disable credential persistence"
                                 ),
                                 file_path=file_path,
-                                line_number=step.get("__line__"),
-                                column=step.get("__column__"),
+                                line_number=get_position(step)[0],
+                                column=get_position(step)[1],
                                 remediation=(
                                     "Add 'persist-credentials: false' to the 'with' section of actions/checkout steps"
                                 ),
@@ -427,8 +428,8 @@ class TokenSecurityRule(TokenRule):
                                     "does not disable credential persistence"
                                 ),
                                 file_path=file_path,
-                                line_number=step.get("__line__"),
-                                column=step.get("__column__"),
+                                line_number=get_position(step)[0],
+                                column=get_position(step)[1],
                                 remediation=(
                                     "Add 'persist-credentials: false' to the 'with' section of actions/checkout steps"
                                 ),
