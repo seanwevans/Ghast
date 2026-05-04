@@ -8,6 +8,7 @@ allowing users to scan GitHub Actions workflows for security issues.
 import copy
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
@@ -219,6 +220,7 @@ def scan(
     severe_findings = sum(sev_counts.get(lvl, 0) for lvl in SEVERITY_LEVELS[threshold_index:])
 
     if severe_findings > 0:
+        sys.stdout.flush()
         raise click.ClickException("Severe findings detected")
 
 
