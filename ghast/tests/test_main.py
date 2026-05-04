@@ -2,8 +2,8 @@
 test_main.py - Tests for the main package functionality
 """
 
-import pytest
 from unittest.mock import patch
+from pathlib import Path
 
 import ghast
 
@@ -50,10 +50,16 @@ def test_main_function():
 
 def test_module_execution():
     """Test direct module execution."""
-    with patch("ghast.main") as mock_main:
-        with patch("ghast.__name__", "__main__"):
+    init_path = Path(ghast.__file__)
 
-            import importlib
+    with patch("ghast.cli.cli") as mock_cli:
+        module_globals = {
+            "__name__": "__main__",
+            "__file__": str(init_path),
+            "__package__": "ghast",
+            "__spec__": None,
+            "__builtins__": __builtins__,
+        }
+        exec(init_path.read_text(), module_globals)
 
-            importlib.reload(ghast)
-            mock_main.assert_called_once()
+        mock_cli.assert_called_once()
