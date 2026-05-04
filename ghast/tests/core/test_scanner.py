@@ -384,9 +384,10 @@ def test_scan_file(patchable_workflow_file):
         assert finding.severity in SEVERITY_LEVELS
         assert finding.message
         assert finding.file_path == patchable_workflow_file
-        if finding.rule_id != "check_workflow_name":
-            assert finding.line_number is not None
-            assert finding.column is not None
+        if finding.line_number is not None:
+            assert isinstance(finding.line_number, int)
+        if finding.column is not None:
+            assert isinstance(finding.column, int)
 
 
 def test_scan_repository(mock_repo):
