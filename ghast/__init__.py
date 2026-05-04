@@ -1,6 +1,3 @@
-_previous_main = globals().get("main")
-if callable(_previous_main) and _previous_main.__class__.__module__.startswith("unittest.mock"):
-    _previous_main()
 
 """
 ghast - GitHub Actions Security Tool
