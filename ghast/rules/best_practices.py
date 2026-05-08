@@ -296,6 +296,8 @@ class ContinueOnErrorRule(Rule):
 class ReusableWorkflowRule(Rule):
     """Rule for checking reusable workflow inputs"""
 
+    INPUT_REFERENCE_PATTERN = re.compile(r"\binputs\.([A-Za-z_][A-Za-z0-9_-]*)")
+
     def __init__(self) -> None:
         super().__init__(
             rule_id="reusable_workflow_inputs",
@@ -304,6 +306,23 @@ class ReusableWorkflowRule(Rule):
             remediation="Define explicit 'inputs' for reusable workflows",
             category="best-practice",
         )
+
+    def _collect_input_references(self, node: Any, refs: List[Dict[str, Any]]) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in ("__line__", "__column__"):
+                    continue
+                self._collect_input_references(value, refs)
+            return
+
+        if isinstance(node, list):
+            for item in node:
+                self._collect_input_references(item, refs)
+            return
+
+        if isinstance(node, str):
+            for match in self.INPUT_REFERENCE_PATTERN.finditer(node):
+                refs.append({"name": match.group(1), "node": node})
 
     def check(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for reusable workflow input issues"""
@@ -323,5 +342,46 @@ class ReusableWorkflowRule(Rule):
                             column=get_position(job)[1],
                         )
                     )
+
+        on_section = workflow.get("on", workflow.get(True, {}))
+        if not isinstance(on_section, dict):
+            return findings
+
+        if "workflow_call" not in on_section:
+            return findings
+        trigger = on_section.get("workflow_call") or {}
+        if not isinstance(trigger, dict):
+            trigger = {}
+
+        declared_inputs = trigger.get("inputs")
+        if declared_inputs is None:
+            declared_inputs = {}
+        if not isinstance(declared_inputs, dict):
+            declared_inputs = {}
+
+        references: List[Dict[str, Any]] = []
+        self._collect_input_references(workflow.get("jobs", {}), references)
+
+        if references and not declared_inputs:
+            findings.append(
+                self.create_finding(
+                    message="Reusable workflow references inputs but does not define on.workflow_call.inputs",
+                    file_path=file_path,
+                    line_number=get_position(trigger)[0],
+                    column=get_position(trigger)[1],
+                )
+            )
+            return findings
+
+        missing = sorted({ref["name"] for ref in references if ref["name"] not in declared_inputs})
+        for name in missing:
+            findings.append(
+                self.create_finding(
+                    message=f"Reusable workflow references undeclared input '{name}'",
+                    file_path=file_path,
+                    line_number=get_position(trigger)[0],
+                    column=get_position(trigger)[1],
+                )
+            )
 
         return findings
