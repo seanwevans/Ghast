@@ -6,4 +6,856 @@
   <title>Ghast — GitHub Actions supply-chain security audits</title>
   <meta name="description" content="Ghast scans GitHub Actions workflows for supply-chain risks, poisoned pipeline execution, overbroad tokens, unpinned actions, and injection hazards." />
   <meta property="og:title" content="Ghast — GitHub Actions supply-chain security audits" />
-  <meta property
+  <meta property="og:description" content="Find and fix risky GitHub Actions workflows before attackers do." />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#221336" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d0716;
+      --bg-soft: #150c24;
+      --bg-card: rgba(255, 255, 255, 0.07);
+      --bg-card-strong: rgba(255, 255, 255, 0.11);
+      --border: rgba(255, 255, 255, 0.16);
+      --border-strong: rgba(255, 255, 255, 0.28);
+      --text: #f7f2ff;
+      --muted: #c6b6dc;
+      --muted-strong: #e0d5ee;
+      --accent: #a879ff;
+      --accent-strong: #d8b4fe;
+      --danger: #ff6b9a;
+      --warning: #ffd166;
+      --success: #5eead4;
+      --shadow: 0 24px 90px rgba(0, 0, 0, 0.45);
+      --radius-lg: 28px;
+      --radius-md: 18px;
+      --radius-sm: 12px;
+      --max-width: 1160px;
+      font-family:
+        Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-width: 320px;
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(168, 121, 255, 0.32), transparent 28rem),
+        radial-gradient(circle at 85% 18%, rgba(255, 107, 154, 0.18), transparent 28rem),
+        linear-gradient(180deg, var(--bg), #12091f 45%, #0c0713 100%);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    body::before {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      content: "";
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: linear-gradient(to bottom, black, transparent 72%);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    code,
+    pre {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    .skip-link {
+      position: absolute;
+      top: 0.75rem;
+      left: 0.75rem;
+      z-index: 20;
+      padding: 0.6rem 0.9rem;
+      color: #1d102f;
+      background: var(--text);
+      border-radius: 999px;
+      transform: translateY(-150%);
+      transition: transform 0.2s ease;
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .site-header,
+    .section,
+    .site-footer {
+      width: min(var(--max-width), calc(100% - 2rem));
+      margin-inline: auto;
+    }
+
+    .site-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1.5rem 0;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 2.7rem;
+      height: 2.7rem;
+      place-items: center;
+      font-size: 1.55rem;
+      background: linear-gradient(135deg, rgba(168, 121, 255, 0.98), rgba(255, 107, 154, 0.88));
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 0.9rem;
+      box-shadow: 0 16px 40px rgba(168, 121, 255, 0.28);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      backdrop-filter: blur(16px);
+    }
+
+    .nav-links a {
+      padding: 0.55rem 0.85rem;
+      color: var(--muted-strong);
+      border-radius: 999px;
+      font-size: 0.94rem;
+    }
+
+    .nav-links a:hover,
+    .nav-links a:focus-visible {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.04fr) minmax(320px, 0.96fr);
+      gap: 2rem;
+      align-items: center;
+      min-height: calc(100vh - 6rem);
+      padding: 3rem 0 5rem;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0 0 1rem;
+      padding: 0.42rem 0.75rem;
+      color: var(--accent-strong);
+      background: rgba(168, 121, 255, 0.14);
+      border: 1px solid rgba(168, 121, 255, 0.28);
+      border-radius: 999px;
+      font-size: 0.86rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      line-height: 1.08;
+      letter-spacing: -0.045em;
+    }
+
+    h1 {
+      max-width: 12ch;
+      font-size: clamp(3rem, 9vw, 6.8rem);
+    }
+
+    h2 {
+      max-width: 13ch;
+      font-size: clamp(2.1rem, 5vw, 4.2rem);
+    }
+
+    h3 {
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .gradient-text {
+      background: linear-gradient(90deg, #fff, #d8b4fe 45%, #ff8fb3);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .hero-copy {
+      max-width: 42rem;
+      margin: 1.35rem 0 0;
+      color: var(--muted);
+      font-size: clamp(1.08rem, 2vw, 1.32rem);
+    }
+
+    .hero-actions,
+    .section-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      margin-top: 2rem;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      min-height: 3rem;
+      padding: 0.82rem 1.1rem;
+      font-weight: 800;
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .button:hover,
+    .button:focus-visible {
+      transform: translateY(-2px);
+      outline: none;
+    }
+
+    .button.primary {
+      color: #1b102b;
+      background: linear-gradient(135deg, #ffffff, #d8b4fe);
+      border-color: rgba(255, 255, 255, 0.76);
+    }
+
+    .button.secondary {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(16px);
+    }
+
+    .terminal-card,
+    .card,
+    .metric,
+    .install-panel {
+      background: linear-gradient(180deg, var(--bg-card-strong), rgba(255, 255, 255, 0.045));
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(24px);
+    }
+
+    .terminal-card {
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+    }
+
+    .terminal-topbar {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.95rem 1.1rem;
+      background: rgba(0, 0, 0, 0.22);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dot {
+      width: 0.78rem;
+      height: 0.78rem;
+      border-radius: 999px;
+    }
+
+    .dot.red { background: #ff6b9a; }
+    .dot.yellow { background: #ffd166; }
+    .dot.green { background: #5eead4; }
+
+    .terminal-title {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .terminal-body {
+      margin: 0;
+      padding: 1.25rem;
+      overflow-x: auto;
+      color: #e9ddfa;
+      font-size: clamp(0.82rem, 1.8vw, 0.97rem);
+      line-height: 1.75;
+    }
+
+    .prompt { color: var(--success); }
+    .critical { color: var(--danger); }
+    .high { color: #ff9d73; }
+    .medium { color: var(--warning); }
+    .low { color: #7dd3fc; }
+    .muted { color: var(--muted); }
+
+    .section {
+      padding: 5.5rem 0;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .section-heading p {
+      max-width: 42rem;
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .metric {
+      padding: 1.35rem;
+      border-radius: var(--radius-md);
+    }
+
+    .metric strong {
+      display: block;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 1;
+      letter-spacing: -0.05em;
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 0.45rem;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      min-height: 100%;
+      padding: 1.35rem;
+      border-radius: var(--radius-md);
+    }
+
+    .card::before {
+      position: absolute;
+      inset: 0 0 auto;
+      height: 3px;
+      content: "";
+      background: linear-gradient(90deg, var(--accent), var(--danger), var(--warning));
+      opacity: 0.75;
+    }
+
+    .card-icon {
+      display: grid;
+      width: 2.6rem;
+      height: 2.6rem;
+      place-items: center;
+      margin-bottom: 1.1rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border);
+      border-radius: 0.9rem;
+      font-size: 1.3rem;
+    }
+
+    .card p,
+    .card li {
+      color: var(--muted);
+    }
+
+    .card p {
+      margin: 0.75rem 0 0;
+    }
+
+    .card ul {
+      margin: 0.85rem 0 0;
+      padding-left: 1.2rem;
+    }
+
+    .install-panel {
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 1.25rem;
+      align-items: stretch;
+      padding: 1rem;
+      border-radius: var(--radius-lg);
+    }
+
+    .install-copy {
+      padding: 1.4rem;
+    }
+
+    .install-copy p {
+      color: var(--muted);
+    }
+
+    .command-list {
+      display: grid;
+      gap: 0.85rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .command-list li {
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.23);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    .command-list span {
+      display: block;
+      margin-bottom: 0.35rem;
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .command-list code {
+      color: var(--muted-strong);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .rule-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: rgba(255, 255, 255, 0.055);
+    }
+
+    th,
+    td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      color: var(--muted-strong);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.55rem;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .badge.critical { color: var(--danger); }
+    .badge.high { color: #ff9d73; }
+    .badge.medium { color: var(--warning); }
+    .badge.low { color: #7dd3fc; }
+
+    .site-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 2rem 0 3rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .footer-links a {
+      color: var(--muted-strong);
+    }
+
+    @media (max-width: 900px) {
+      .site-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .nav-links {
+        width: 100%;
+        overflow-x: auto;
+        justify-content: flex-start;
+      }
+
+      .hero,
+      .install-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .metrics,
+      .grid.three,
+      .grid.two {
+        grid-template-columns: 1fr;
+      }
+
+      .section-heading {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header" aria-label="Site header">
+    <a class="brand" href="#top" aria-label="Ghast home">
+      <span class="brand-mark" aria-hidden="true">☠️</span>
+      <span>ghast</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary navigation">
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="#rules">Rules</a>
+      <a href="https://github.com/seanwevans/ghast">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section id="top" class="section hero" aria-labelledby="hero-title">
+      <div>
+        <p class="eyebrow">GitHub Actions security auditing</p>
+        <h1 id="hero-title"><span class="gradient-text">Harden workflows</span> before they haunt you.</h1>
+        <p class="hero-copy">
+          Ghast is a command-line security scanner for GitHub Actions workflows. It finds
+          poisoned pipeline execution, command injection, exposed secrets, unpinned actions,
+          permissive tokens, and other CI/CD supply-chain risks.
+        </p>
+        <div class="hero-actions" aria-label="Primary actions">
+          <a class="button primary" href="#install">Get started</a>
+          <a class="button secondary" href="https://github.com/seanwevans/ghast">View source</a>
+        </div>
+        <div class="metrics" aria-label="Project highlights">
+          <div class="metric">
+            <strong>15+</strong>
+            <span>security and best-practice checks</span>
+          </div>
+          <div class="metric">
+            <strong>4</strong>
+            <span>report formats: console, JSON, SARIF, HTML</span>
+          </div>
+          <div class="metric">
+            <strong>1</strong>
+            <span>command to auto-fix common issues</span>
+          </div>
+        </div>
+      </div>
+
+      <aside class="terminal-card" aria-label="Example Ghast scan output">
+        <div class="terminal-topbar" aria-hidden="true">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+          <span class="terminal-title">ghast scan</span>
+        </div>
+        <pre class="terminal-body"><code><span class="prompt">$</span> ghast scan . --severity-threshold MEDIUM
+🔍 Scanning .github/workflows/ci.yml...
+
+<span class="critical">🚨 CRITICAL</span> Poisoned Pipeline Execution
+  pull_request_target checks out untrusted code
+  Fix: use pull_request or avoid untrusted checkout
+
+<span class="high">❗ HIGH</span> Missing explicit permissions
+  Fix: add permissions: read-all at workflow level
+
+<span class="medium">⚠️ MEDIUM</span> Unpinned action
+  actions/checkout@v3 is not pinned to a commit SHA
+
+<span class="muted">Report written to ghast-results.sarif</span></code></pre>
+      </aside>
+    </section>
+
+    <section id="features" class="section" aria-labelledby="features-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">What it catches</p>
+          <h2 id="features-title">Practical CI/CD guardrails.</h2>
+        </div>
+        <p>
+          Ghast focuses on the workflow mistakes that turn automation into an attack path:
+          unsafe triggers, script injection, broad credentials, mutable dependencies, and
+          hard-to-review pipeline drift.
+        </p>
+      </div>
+
+      <div class="grid three">
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">🧪</span>
+          <h3>Detect poisoned pipelines</h3>
+          <p>
+            Flag dangerous combinations such as privileged pull request triggers that run
+            attacker-controlled code with access to secrets or write-scoped tokens.
+          </p>
+        </article>
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">🔐</span>
+          <h3>Reduce credential blast radius</h3>
+          <p>
+            Check for explicit least-privilege permissions, secret exposure patterns, and token
+            practices that can leak or over-empower GitHub credentials.
+          </p>
+        </article>
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">📌</span>
+          <h3>Pin the supply chain</h3>
+          <p>
+            Identify mutable third-party action references so teams can move toward commit-SHA
+            pinning and avoid unexpected upstream changes.
+          </p>
+        </article>
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">🛠️</span>
+          <h3>Fix common findings</h3>
+          <p>
+            Use dry-run, automatic, or interactive remediation modes to add timeouts, tighten
+            permissions, update deprecated actions, and apply safe defaults.
+          </p>
+        </article>
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">📊</span>
+          <h3>Report for humans and tools</h3>
+          <p>
+            Emit readable console output for local triage, JSON for automation, SARIF for GitHub
+            Code Scanning, or HTML for shareable review artifacts.
+          </p>
+        </article>
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">⚙️</span>
+          <h3>Configure by repository</h3>
+          <p>
+            Tune enabled checks, severities, default timeouts, deprecated action replacements,
+            and auto-fix behavior with a small YAML configuration file.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="install" class="section" aria-labelledby="install-title">
+      <div class="install-panel">
+        <div class="install-copy">
+          <p class="eyebrow">Quick start</p>
+          <h2 id="install-title">Install, scan, remediate.</h2>
+          <p>
+            Install Ghast from PyPI or from source, then point it at any repository containing
+            GitHub Actions workflow files under <code>.github/workflows</code>.
+          </p>
+          <div class="section-actions">
+            <a class="button primary" href="https://github.com/seanwevans/ghast#readme">Read the docs</a>
+            <a class="button secondary" href="https://github.com/seanwevans/ghast/issues">Report an issue</a>
+          </div>
+        </div>
+        <ol class="command-list" aria-label="Installation and usage commands">
+          <li>
+            <span>Install from PyPI</span>
+            <code>pip install ghast</code>
+          </li>
+          <li>
+            <span>Scan a repository</span>
+            <code>ghast scan /path/to/repo</code>
+          </li>
+          <li>
+            <span>Apply safe automatic fixes</span>
+            <code>ghast fix /path/to/repo --dry-run</code>
+          </li>
+          <li>
+            <span>Generate SARIF for code scanning</span>
+            <code>ghast scan /path/to/repo --output sarif --output-file ghast-results.sarif</code>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="rules" class="section" aria-labelledby="rules-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Built-in coverage</p>
+          <h2 id="rules-title">Rules that map to real workflow risk.</h2>
+        </div>
+        <p>
+          Severity levels help prioritize remediation, from critical poisoned pipeline execution
+          findings down to low-noise workflow hardening recommendations.
+        </p>
+      </div>
+
+      <div class="rule-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Rule</th>
+              <th scope="col">Category</th>
+              <th scope="col">Severity</th>
+              <th scope="col">Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>poisoned_pipeline_execution</code></td>
+              <td>Security</td>
+              <td><span class="badge critical">Critical</span></td>
+              <td>Detect privileged workflows that may run untrusted pull request code.</td>
+            </tr>
+            <tr>
+              <td><code>permissions</code></td>
+              <td>Security</td>
+              <td><span class="badge high">High</span></td>
+              <td>Require explicit, least-privilege GitHub token permissions.</td>
+            </tr>
+            <tr>
+              <td><code>command_injection</code></td>
+              <td>Security</td>
+              <td><span class="badge high">High</span></td>
+              <td>Find unsafe interpolation of untrusted contexts into shell commands.</td>
+            </tr>
+            <tr>
+              <td><code>environment_injection</code></td>
+              <td>Security</td>
+              <td><span class="badge high">High</span></td>
+              <td>Flag untrusted values flowing into environment variables.</td>
+            </tr>
+            <tr>
+              <td><code>token_security</code></td>
+              <td>Security</td>
+              <td><span class="badge high">High</span></td>
+              <td>Detect risky token and secret exposure patterns.</td>
+            </tr>
+            <tr>
+              <td><code>action_pinning</code></td>
+              <td>Security</td>
+              <td><span class="badge medium">Medium</span></td>
+              <td>Encourage commit-SHA pinning for third-party actions.</td>
+            </tr>
+            <tr>
+              <td><code>deprecated_actions</code></td>
+              <td>Best practice</td>
+              <td><span class="badge medium">Medium</span></td>
+              <td>Suggest supported replacements for old action versions.</td>
+            </tr>
+            <tr>
+              <td><code>timeout</code>, <code>shell_specification</code>, <code>workflow_name</code></td>
+              <td>Best practice</td>
+              <td><span class="badge low">Low</span></td>
+              <td>Improve maintainability, reliability, and reviewability of workflows.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="ci-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">CI-ready</p>
+          <h2 id="ci-title">Make security checks part of every change.</h2>
+        </div>
+        <p>
+          Run Ghast locally during workflow development, in pre-merge automation, or as a scheduled
+          guardrail that produces SARIF and fails builds at your chosen severity threshold.
+        </p>
+      </div>
+      <div class="grid two">
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">🚦</span>
+          <h3>Fail on serious findings</h3>
+          <p>
+            Use severity thresholds to decide when a pipeline should fail while still surfacing
+            lower-priority findings for backlog hardening.
+          </p>
+        </article>
+        <article class="card">
+          <span class="card-icon" aria-hidden="true">🧾</span>
+          <h3>Keep audit artifacts</h3>
+          <p>
+            Store HTML reports for security reviews or upload SARIF to GitHub Code Scanning so
+            workflow findings live beside application code alerts.
+          </p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Built for teams that depend on GitHub Actions. Released under the MIT License.</p>
+    <div class="footer-links" aria-label="Footer links">
+      <a href="https://github.com/seanwevans/ghast">GitHub</a>
+      <a href="https://github.com/seanwevans/ghast#readme">README</a>
+      <a href="https://github.com/seanwevans/ghast/blob/main/SECURITY.md">Security</a>
+    </div>
+  </footer>
+</body>
+</html>
