@@ -106,13 +106,19 @@ def _construct_mapping_with_preserved_bool_keys(
     return mapping
 
 
+def _construct_position_tracked_list(
+    loader: LineColumnLoader, node: yaml.nodes.SequenceNode
+) -> PositionTrackedList:
+    return PositionTrackedList(loader.construct_sequence(node))
+
+
 LineColumnLoader.add_constructor(
     yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
     _construct_mapping_with_preserved_bool_keys,
 )
 LineColumnLoader.add_constructor(
     yaml.resolver.BaseResolver.DEFAULT_SEQUENCE_TAG,
-    lambda loader, node: PositionTrackedList(loader.construct_sequence(node)),
+    _construct_position_tracked_list,
 )
 
 
@@ -154,7 +160,13 @@ def load_yaml_with_positions(content: str) -> Dict[str, Any]:
     root_id = id(loaded)
     _positions_by_root_id[root_id] = by_id
     _paths_by_root_id[root_id] = by_path
-    _root_refs[root_id] = weakref.ref(loaded, lambda _ref, rid=root_id: _cleanup_root(rid))
+
+    def _on_root_dead(
+        _ref: "weakref.ReferenceType[PositionTrackedDict]", rid: int = root_id
+    ) -> None:
+        _cleanup_root(rid)
+
+    _root_refs[root_id] = weakref.ref(loaded, _on_root_dead)
     _cleanup_dead_roots()
     return loaded
 
