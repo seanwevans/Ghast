@@ -6,6 +6,7 @@ lookups, dead-root cleanup, missing-directory file discovery, and the
 context-extraction error fallback.
 """
 
+import gc
 import weakref
 
 import yaml
@@ -57,6 +58,19 @@ def test_cleanup_dead_roots_removes_dead_entry():
     _cleanup_dead_roots()
     assert root_id not in yaml_handler._root_refs
     assert root_id not in yaml_handler._positions_by_root_id
+
+
+def test_weakref_callback_cleans_up_dead_root():
+    # Loading registers a weakref whose callback removes the root's position
+    # data once the loaded object is garbage collected.
+    loaded = load_yaml_with_positions("on: push\njobs: {}\n")
+    root_id = id(loaded)
+    assert root_id in yaml_handler._positions_by_root_id
+
+    del loaded
+    gc.collect()
+    assert root_id not in yaml_handler._positions_by_root_id
+    assert root_id not in yaml_handler._root_refs
 
 
 def test_find_yaml_files_missing_directory(tmp_path):

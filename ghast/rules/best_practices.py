@@ -6,7 +6,7 @@ This module provides rules focused on best practices rather than strict security
 
 import os
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 from ..core import Finding
 from ..utils.yaml_handler import get_position
@@ -343,7 +343,10 @@ class ReusableWorkflowRule(Rule):
                         )
                     )
 
-        on_section = workflow.get("on", workflow.get(True, {}))
+        # ``on`` may surface as the string "on" (position-preserving loader) or
+        # as the boolean ``True`` key when parsed with a stock YAML 1.1 loader.
+        workflow_keys = cast(Dict[Any, Any], workflow)
+        on_section = workflow_keys.get("on", workflow_keys.get(True, {}))
         if not isinstance(on_section, dict):
             return findings
 
