@@ -178,7 +178,10 @@ def generate_html_report(
     findings: List[Finding], stats: Dict[str, Any], repo_path: Optional[str] = None
 ) -> str:
     """
-    Generate an HTML report (placeholder for future implementation)
+    Generate a self-contained HTML report
+
+    Renders the summary statistics as a table and embeds the full text report
+    (HTML-escaped) for detailed findings.
 
     Args:
         findings: List of findings
