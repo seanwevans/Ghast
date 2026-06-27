@@ -499,5 +499,5 @@ def report(repo_path: str, output: str, format: str) -> None:
     click.echo(f"Report generated at: {output}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     cli()
