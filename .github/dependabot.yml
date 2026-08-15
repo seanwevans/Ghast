@@ -1,0 +1,49 @@
+version: 2
+
+updates:
+  # Workflow actions are pinned to commit SHAs, which is the right call for
+  # supply-chain safety but means nothing updates them without help. This is
+  # what keeps a pinned SHA from silently rotting on a known-vulnerable
+  # version.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Also covers the action.yml at the repository root, which pins
+  # actions/setup-python.
+  - package-ecosystem: "github-actions"
+    directory: "/.github/workflows"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dependencies"
+      - "python"
+    groups:
+      # Lint and type-check pins move together; a PR each would be noise.
+      dev-tooling:
+        patterns:
+          - "black"
+          - "isort"
+          - "flake8"
+          - "mypy"
+          - "types-*"
+          - "build"
+          - "wheel"

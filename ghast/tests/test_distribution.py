@@ -182,3 +182,85 @@ def test_hook_entry_options_are_accepted_by_the_cli(hooks):
         for part in hook["entry"].split():
             if part.startswith("--"):
                 assert part in known, f"{part} is not a `ghast scan` option"
+
+
+# --- repository hygiene -------------------------------------------------------
+
+DEPENDABOT = ROOT / ".github" / "dependabot.yml"
+CHANGELOG = ROOT / "CHANGELOG.md"
+WORKFLOW_DIR = ROOT / ".github" / "workflows"
+
+
+@pytest.fixture(scope="module")
+def dependabot():
+    with open(DEPENDABOT) as handle:
+        return yaml.safe_load(handle)
+
+
+def test_dependabot_config_is_version_two(dependabot):
+    assert dependabot["version"] == 2
+
+
+def test_dependabot_covers_actions_and_python(dependabot):
+    """SHA-pinned actions never update on their own; this is what moves them."""
+    ecosystems = {entry["package-ecosystem"] for entry in dependabot["updates"]}
+
+    assert "github-actions" in ecosystems
+    assert "pip" in ecosystems
+
+
+def test_every_dependabot_entry_has_a_schedule(dependabot):
+    for entry in dependabot["updates"]:
+        assert entry["schedule"]["interval"]
+        assert entry["directory"]
+
+
+def test_codeql_workflow_exists_and_uploads_results():
+    with open(WORKFLOW_DIR / "codeql.yml") as handle:
+        workflow = yaml.safe_load(handle)
+
+    job = workflow["jobs"]["analyze"]
+    assert job["permissions"]["security-events"] == "write"
+    assert any("codeql-action/analyze" in s.get("uses", "") for s in job["steps"])
+
+
+def test_every_workflow_pins_actions_by_sha():
+    """ghast reports unpinned actions; its own workflows must not have any."""
+    import re
+
+    for path in sorted(WORKFLOW_DIR.glob("*.y*ml")):
+        with open(path) as handle:
+            workflow = yaml.safe_load(handle)
+
+        for job in workflow["jobs"].values():
+            for step in job.get("steps", []):
+                uses = step.get("uses")
+                if uses is None:
+                    continue
+                assert re.search(
+                    r"@[0-9a-f]{40}$", uses
+                ), f"{path.name}: {uses} is not pinned to a SHA"
+
+
+def test_ghast_reports_nothing_on_its_own_workflows():
+    """The self-check job in CI, run as a test so it fails fast locally."""
+    from ghast.core import scan_repository
+
+    findings, _ = scan_repository(str(ROOT))
+
+    assert findings == [], [f.message for f in findings]
+
+
+def test_changelog_exists_and_has_an_unreleased_section():
+    text = CHANGELOG.read_text()
+
+    assert "# Changelog" in text
+    assert "## [Unreleased]" in text
+
+
+def test_changelog_documents_the_breaking_changes():
+    """Anyone upgrading needs to find these without reading the diff."""
+    text = CHANGELOG.read_text()
+
+    for topic in ("could not be imported", "corrupted the workflows", "Config keys are rule IDs"):
+        assert topic in text
