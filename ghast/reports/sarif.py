@@ -54,6 +54,31 @@ def severity_to_sarif_level(severity: str) -> str:
     return GITHUB_SEVERITY_LEVELS.get(severity, "warning")
 
 
+#: Where a reader can go to understand a rule.
+RULE_HELP_URI = "https://github.com/seanwevans/ghast#built-in-rules"
+
+#: Namespaced so a future change to the scheme can coexist with old reports.
+FINGERPRINT_KEY = "ghast/rule-file-message/v1"
+
+
+def _rule_metadata() -> Dict[str, Dict[str, str]]:
+    """Describe every built-in rule, keyed by rule id.
+
+    Imported lazily: ``ghast.rules`` pulls in ``ghast.core``, and this package
+    is imported before it during package initialisation.
+    """
+    from ..rules.registry import build_default_rules
+
+    return {
+        rule.rule_id: {
+            "description": rule.description,
+            "remediation": rule.remediation,
+            "category": rule.category,
+        }
+        for rule in build_default_rules()
+    }
+
+
 def rule_to_sarif_rule(
     rule_id: str,
     severity: str,
@@ -66,23 +91,35 @@ def rule_to_sarif_rule(
     Args:
         rule_id: Rule ID
         severity: Rule severity
-        description: Rule description
-        help_text: Rule help text
+        description: What the rule checks for. This must describe the *rule*,
+            not one of its findings: the driver's rule list is shared metadata,
+            so putting a single finding's message here labels the rule with
+            whichever finding happened to be reported first.
+        help_text: Remediation guidance shown alongside the rule.
 
     Returns:
         SARIF rule definition
     """
-    sarif_rule = {
+    sarif_rule: Dict[str, Any] = {
         "id": rule_id,
+        "name": rule_id,
         "shortDescription": {"text": description or f"Rule {rule_id}"},
-        "properties": {"security-severity": str(SECURITY_SEVERITY_SCORES.get(severity, 5.0))},
+        "defaultConfiguration": {"level": severity_to_sarif_level(severity)},
+        "helpUri": RULE_HELP_URI,
+        "properties": {
+            "security-severity": str(SECURITY_SEVERITY_SCORES.get(severity, 5.0)),
+            "tags": ["security", "github-actions"],
+        },
     }
-
-    if help_text:
-        sarif_rule["helpText"] = {"text": help_text}
 
     if description:
         sarif_rule["fullDescription"] = {"text": description}
+
+    if help_text:
+        # `helpText` is not a SARIF property. The spec defines `help`, a
+        # multiformatMessageString, and GitHub renders it in the alert body;
+        # anything under `helpText` was silently dropped by every consumer.
+        sarif_rule["help"] = {"text": help_text}
 
     return sarif_rule
 
@@ -119,10 +156,21 @@ def finding_to_sarif_result(finding: Finding, repo_root: Optional[str] = None) -
             region = cast(Dict[str, Any], physical_loc["region"])
             region["startColumn"] = finding.column
 
-    if finding.remediation:
-        result["fixes"] = [{"description": {"text": finding.remediation}}]
+    # Lets GitHub Code Scanning track one finding across commits instead of
+    # closing and reopening it whenever the file moves. Deliberately the same
+    # fingerprint the baseline file uses, so the two agree on identity.
+    from ..core.suppressions import finding_fingerprint
+
+    result["partialFingerprints"] = {FINGERPRINT_KEY: finding_fingerprint(finding, repo_root)}
 
     result["properties"] = {"severity": finding.severity}
+
+    if finding.remediation:
+        # Not `fixes`: a SARIF `fix` requires `artifactChanges` describing the
+        # edit to apply, and ghast's remediation is prose. Emitting a fix with
+        # only a description made the document fail schema validation.
+        properties = cast(Dict[str, Any], result["properties"])
+        properties["remediation"] = finding.remediation
 
     if finding.context:
         properties = cast(Dict[str, Any], result["properties"])
@@ -189,14 +237,19 @@ def generate_sarif_report(
             sarif["runs"][0]["invocations"][0]["endTimeUtc"] = end_time
 
     rules_dict: Dict[str, Dict[str, Any]] = {}
+    metadata = _rule_metadata()
 
     for finding in findings:
         if finding.rule_id not in rules_dict:
+            # Prefer the rule's own description over the finding's message.
+            # Falling back to the message is only for synthetic ids such as
+            # `file_error`, which have no registered rule behind them.
+            info = metadata.get(finding.rule_id, {})
             rule = rule_to_sarif_rule(
                 finding.rule_id,
                 normalize_severity(finding.severity),
-                description=finding.message,
-                help_text=finding.remediation,
+                description=info.get("description") or finding.message,
+                help_text=info.get("remediation") or finding.remediation,
             )
             rules_dict[finding.rule_id] = rule
             sarif["runs"][0]["tool"]["driver"]["rules"].append(rule)
@@ -260,7 +313,7 @@ def generate_sarif_suppression_file(findings: List[Finding], output_path: str) -
         hash_input = (
             f"{finding.rule_id}:{finding.file_path}:{finding.line_number or ''}:{finding.message}"
         )
-        finding_hash = hashlib.md5(hash_input.encode("utf-8")).hexdigest()
+        finding_hash = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()[:32]
 
         suppression: Dict[str, Any] = {
             "guid": finding_hash,
