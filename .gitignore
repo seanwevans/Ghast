@@ -172,3 +172,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# ghast fix --backup writes these next to the workflow it changed
+*.yml.bak
+*.yaml.bak

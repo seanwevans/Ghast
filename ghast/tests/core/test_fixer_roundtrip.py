@@ -317,3 +317,77 @@ def test_every_fixer_key_is_reachable_from_a_real_finding(tmp_path):
 
     registry = set(Fixer({}).fixers)
     assert registry & reported, f"no fixer in {sorted(registry)} matches any of {sorted(reported)}"
+
+
+# --- backup handling ----------------------------------------------------------
+
+
+def test_no_backup_is_left_behind_by_default(tmp_path):
+    """A successful fix used to leave a .bak beside every file it touched."""
+    path = _write(tmp_path)
+    _fix(path)
+
+    assert not os.path.exists(f"{path}.bak")
+
+
+def test_backup_flag_keeps_the_original(tmp_path):
+    path = _write(tmp_path)
+    before = open(path).read()
+
+    applied, _ = Fixer({}, backup=True).fix_workflow_file(path, [_timeout_finding(path)])
+
+    assert applied == 1
+    assert open(f"{path}.bak").read() == before
+    assert open(path).read() != before
+
+
+def test_backup_is_removed_when_nothing_changed(tmp_path):
+    """A backup of an untouched file is litter even when backups are on."""
+    path = _write(tmp_path)
+    unfixable = Finding(
+        rule_id="timeout",
+        severity="LOW",
+        message="Job 'nonexistent' has 6 steps but no timeout-minutes set",
+        file_path=path,
+        can_fix=True,
+    )
+
+    applied, _ = Fixer({}, backup=True).fix_workflow_file(path, [unfixable])
+
+    assert applied == 0
+    assert not os.path.exists(f"{path}.bak")
+
+
+def test_rollback_works_without_a_backup_file(tmp_path, monkeypatch, capsys):
+    """Restore comes from the original held in memory, not from disk."""
+    import ghast.core.fixer as fixer_module
+
+    path = _write(tmp_path)
+    before = open(path).read()
+
+    monkeypatch.setattr(
+        fixer_module, "dump_workflow", lambda *a, **k: "name: CI\ntrue:\n- push\njobs: {}\n"
+    )
+    applied, _ = Fixer({}).fix_workflow_file(path, [_timeout_finding(path)])
+
+    assert applied == 0
+    assert open(path).read() == before
+    assert not os.path.exists(f"{path}.bak")
+    assert "boolean key" in capsys.readouterr().err
+
+
+def test_rollback_removes_the_backup_it_created(tmp_path, monkeypatch, capsys):
+    import ghast.core.fixer as fixer_module
+
+    path = _write(tmp_path)
+    before = open(path).read()
+
+    monkeypatch.setattr(
+        fixer_module, "dump_workflow", lambda *a, **k: "name: CI\ntrue:\n- push\njobs: {}\n"
+    )
+    applied, _ = Fixer({}, backup=True).fix_workflow_file(path, [_timeout_finding(path)])
+
+    assert applied == 0
+    assert open(path).read() == before
+    assert not os.path.exists(f"{path}.bak")
+    capsys.readouterr()

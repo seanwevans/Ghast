@@ -304,7 +304,14 @@ ghast fix /path/to/repo --interactive
 
 # Fix only critical issues
 ghast fix /path/to/repo --severity-threshold CRITICAL
+
+# Keep a .bak copy of every file that changed
+ghast fix /path/to/repo --backup
 ```
+
+Fixes are written in place with no backup by default: workflows live in version
+control, and the rewritten document is re-parsed and checked before it replaces
+anything. Pass `--backup` if you want a `.bak` alongside each changed file.
 
 ### Configuration
 
