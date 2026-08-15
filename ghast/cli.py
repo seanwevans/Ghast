@@ -23,7 +23,7 @@ from .core import (
     scan_repository,
     unknown_rule_names,
 )
-from .core.scanner import normalize_severity
+from .core.scanner import ScannerError, normalize_severity
 from .core.suppressions import BaselineError, apply_baseline, build_baseline, load_baseline
 from .reports import generate_full_report, print_report, save_report
 from .rules import create_rule_engine
@@ -153,7 +153,10 @@ def _prepare_scan(
         if echo:
             click.echo(f"Scanning single workflow file: {path}")
         scanner = WorkflowScanner(strict=strict, config=config_data)
-        findings = scanner.scan_file(str(path), severity_threshold)
+        try:
+            findings = scanner.scan_file(str(path), severity_threshold)
+        except ScannerError as error:
+            raise GhastError(str(error))
 
         from .core import SEVERITY_LEVELS
 
@@ -184,12 +187,17 @@ def _prepare_scan(
         if echo and show_file_count:
             click.echo(f"Found {len(files_to_scan)} workflow file(s) to scan")
 
-        findings, stats = scan_repository(
-            repo_path=repo_path,
-            strict=strict,
-            config=config_data,
-            severity_threshold=severity_threshold,
-        )
+        try:
+            findings, stats = scan_repository(
+                repo_path=repo_path,
+                strict=strict,
+                config=config_data,
+                severity_threshold=severity_threshold,
+            )
+        except ScannerError as error:
+            # A bug in ghast must exit 2, not be reported as a finding about
+            # the user's workflow.
+            raise GhastError(str(error))
 
     return findings, stats, config_data
 

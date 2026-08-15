@@ -185,7 +185,7 @@ def test_scanner_honours_inline_directives(tmp_path):
 
     annotated = WORKFLOW.replace(
         "      - uses: actions/checkout@v4",
-        "      - uses: actions/checkout@v4  # ghast: ignore[check_action_pinning]",
+        "      - uses: actions/checkout@v4  # ghast: ignore[action_pinning]",
     )
     path = _repo(tmp_path, annotated)
 
@@ -199,7 +199,7 @@ def test_scanner_honours_inline_directives(tmp_path):
 def test_scanner_counts_suppressions_across_files(tmp_path):
     annotated = WORKFLOW.replace(
         "      - uses: actions/checkout@v4",
-        "      - uses: actions/checkout@v4  # ghast: ignore[check_action_pinning]",
+        "      - uses: actions/checkout@v4  # ghast: ignore[action_pinning]",
     )
     path = _repo(tmp_path, annotated)
 

@@ -61,6 +61,13 @@ class Finding:
         self.severity = normalize_severity(self.severity)
 
 
+class ScannerError(Exception):
+    """Raised when ghast itself fails while scanning a file.
+
+    Distinct from a malformed workflow, which is reported as a finding.
+    """
+
+
 class WorkflowScanner:
     """Scans GitHub Actions workflow files for security issues"""
 
@@ -141,10 +148,9 @@ class WorkflowScanner:
                 file_path,
                 severity_threshold=normalized_threshold,
             )
-            normalized_findings = self._normalize_rule_ids(engine_findings)
             above_threshold = [
                 finding
-                for finding in normalized_findings
+                for finding in engine_findings
                 if SEVERITY_LEVELS.index(normalize_severity(finding.severity))
                 >= SEVERITY_LEVELS.index(normalized_threshold)
             ]
@@ -155,7 +161,8 @@ class WorkflowScanner:
             self.suppressed_count += suppressed
             findings.extend(kept)
 
-        except Exception as e:
+        except (yaml.YAMLError, OSError, UnicodeDecodeError) as e:
+            # Problems with the file itself are a finding about the file.
             findings.append(
                 Finding(
                     rule_id="file_error",
@@ -165,6 +172,17 @@ class WorkflowScanner:
                     remediation="Ensure the file is valid YAML.",
                 )
             )
+        except Exception as e:
+            # Anything else is a bug in ghast, not a problem with the user's
+            # workflow. Reporting it as a MEDIUM finding about their file made
+            # a completely broken scanner look like it was working: an
+            # AttributeError once turned every scan into "Error parsing
+            # workflow file" while reporting exit 0 for a clean repository.
+            # Let it escape so the CLI exits 2 and CI actually goes red.
+            raise ScannerError(
+                f"ghast failed while scanning {file_path}: {type(e).__name__}: {e}. "
+                "This is a bug in ghast; please report it."
+            ) from e
 
         return findings
 
