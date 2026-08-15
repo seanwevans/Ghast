@@ -34,7 +34,7 @@ requires-python = ">=3.10"
 dependencies = [
     "click>=8.0.0",
     "pyyaml>=6.0",
-    "ruamel.yaml>=0.17.21",
+    "ruamel.yaml>=0.19.1",
     "colorama>=0.4.4; platform_system=='Windows'",
 ]
 
