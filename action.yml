@@ -1,0 +1,138 @@
+name: "ghast"
+description: "Audit GitHub Actions workflows for security misconfigurations and anti-patterns"
+author: "Sean Evans"
+
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  path:
+    description: "Repository root, or a single workflow file, to scan"
+    required: false
+    default: "."
+  severity-threshold:
+    description: "Minimum severity to report and to fail on: LOW, MEDIUM, HIGH or CRITICAL"
+    required: false
+    default: "LOW"
+  config:
+    description: "Path to a ghast YAML config file"
+    required: false
+    default: ""
+  disable:
+    description: "Whitespace-separated rule ids to disable"
+    required: false
+    default: ""
+  output:
+    description: "Output format: text, json, sarif or html"
+    required: false
+    default: "text"
+  output-file:
+    description: "Write results here instead of stdout. Required for SARIF upload."
+    required: false
+    default: ""
+  fail-on-findings:
+    description: "Fail the step when findings at or above the threshold are reported"
+    required: false
+    default: "true"
+  strict:
+    description: "Enable strict mode (extra warnings)"
+    required: false
+    default: "false"
+  version:
+    description: >-
+      PyPI version specifier to install, e.g. "0.2.0". Defaults to installing
+      the action's own checked-out source, so the scanner always matches the
+      ref you pinned.
+    required: false
+    default: ""
+  python-version:
+    description: "Python version to set up. Leave empty to use the runner's existing Python."
+    required: false
+    default: ""
+
+outputs:
+  exit-code:
+    description: "0 = clean, 1 = findings at or above the threshold, 2 = ghast failed to run"
+    value: ${{ steps.scan.outputs.exit-code }}
+  findings:
+    description: "Whether findings at or above the threshold were reported (true/false)"
+    value: ${{ steps.scan.outputs.findings }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      if: inputs.python-version != ''
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install ghast
+      shell: bash
+      env:
+        GHAST_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        if [ -n "$GHAST_VERSION" ]; then
+          python3 -m pip install --disable-pip-version-check "ghast==$GHAST_VERSION"
+        else
+          # Installing the action's own source keeps the scanner in lockstep
+          # with the ref the caller pinned.
+          python3 -m pip install --disable-pip-version-check "$GITHUB_ACTION_PATH"
+        fi
+
+    - name: Run ghast
+      id: scan
+      shell: bash
+      env:
+        # Passed through the environment rather than interpolated into the
+        # script, so a value containing shell metacharacters is data, not code.
+        GHAST_PATH: ${{ inputs.path }}
+        GHAST_THRESHOLD: ${{ inputs.severity-threshold }}
+        GHAST_CONFIG: ${{ inputs.config }}
+        GHAST_DISABLE: ${{ inputs.disable }}
+        GHAST_OUTPUT: ${{ inputs.output }}
+        GHAST_OUTPUT_FILE: ${{ inputs.output-file }}
+        GHAST_STRICT: ${{ inputs.strict }}
+        GHAST_FAIL: ${{ inputs.fail-on-findings }}
+      run: |
+        set -uo pipefail
+
+        args=(scan "$GHAST_PATH" --severity-threshold "$GHAST_THRESHOLD" --output "$GHAST_OUTPUT")
+
+        [ -n "$GHAST_CONFIG" ] && args+=(--config "$GHAST_CONFIG")
+        [ -n "$GHAST_OUTPUT_FILE" ] && args+=(--output-file "$GHAST_OUTPUT_FILE")
+        [ "$GHAST_STRICT" = "true" ] && args+=(--strict)
+
+        for rule in $GHAST_DISABLE; do
+          args+=(--disable "$rule")
+        done
+
+        set +e
+        ghast "${args[@]}"
+        code=$?
+        set -e
+
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+
+        case "$code" in
+          0)
+            echo "findings=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=ghast::No findings at or above $GHAST_THRESHOLD"
+            ;;
+          1)
+            echo "findings=true" >> "$GITHUB_OUTPUT"
+            echo "::error title=ghast::Findings at or above $GHAST_THRESHOLD"
+            [ "$GHAST_FAIL" = "true" ] && exit 1
+            ;;
+          *)
+            # Exit 2 means ghast could not run. That is always a failure,
+            # regardless of fail-on-findings, which is about findings only.
+            echo "findings=false" >> "$GITHUB_OUTPUT"
+            echo "::error title=ghast::ghast failed to run (exit $code)"
+            exit "$code"
+            ;;
+        esac
+
+        exit 0
