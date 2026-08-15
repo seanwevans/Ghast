@@ -40,7 +40,7 @@ def test_rule_to_sarif_rule():
 
     assert rule["id"] == "test_rule"
     assert rule["shortDescription"]["text"] == "Test description"
-    assert rule["helpText"]["text"] == "Test help text"
+    assert rule["help"]["text"] == "Test help text"
     assert rule["fullDescription"]["text"] == "Test description"
     assert rule["properties"]["security-severity"] == str(SECURITY_SEVERITY_SCORES["HIGH"])
 
@@ -75,7 +75,9 @@ def test_finding_to_sarif_result(mock_findings):
 
     finding.remediation = "Fix it"
     result = finding_to_sarif_result(finding)
-    assert result["fixes"][0]["description"]["text"] == "Fix it"
+    # Not `fixes`: a SARIF fix requires artifactChanges, which prose cannot fill.
+    assert "fixes" not in result
+    assert result["properties"]["remediation"] == "Fix it"
 
     finding.context = {"test": "value"}
     result = finding_to_sarif_result(finding)
@@ -260,3 +262,123 @@ def test_sarif_validation(mock_findings, mock_stats):
         assert "physicalLocation" in location
         assert "artifactLocation" in location["physicalLocation"]
         assert "uri" in location["physicalLocation"]["artifactLocation"]
+
+
+# --- SARIF 2.1.0 conformance --------------------------------------------------
+#
+# Validated against the official schema during development: the previous output
+# produced 19 errors (`fixes` entries missing the required `artifactChanges`,
+# and `helpText` which is not a SARIF property). These tests pin the contract
+# without requiring a network fetch in CI.
+
+import json as _json
+
+from ghast.core.scanner import Finding as _Finding
+from ghast.reports.sarif import FINGERPRINT_KEY, generate_sarif_report
+
+
+def _report(findings, stats=None):
+    return _json.loads(generate_sarif_report(findings, stats or {}))
+
+
+def _finding(rule_id="permissions", **kwargs):
+    defaults = dict(
+        rule_id=rule_id,
+        severity="HIGH",
+        message="Missing explicit permissions at workflow level",
+        file_path="w.yml",
+        remediation="Add permissions",
+    )
+    defaults.update(kwargs)
+    return _Finding(**defaults)
+
+
+def test_no_result_uses_the_invalid_fixes_property():
+    """A SARIF `fix` requires `artifactChanges`; prose remediation cannot fill it."""
+    run = _report([_finding()])["runs"][0]
+
+    for result in run["results"]:
+        assert "fixes" not in result
+
+
+def test_remediation_is_carried_in_properties():
+    result = _report([_finding()])["runs"][0]["results"][0]
+
+    assert result["properties"]["remediation"] == "Add permissions"
+
+
+def test_rules_use_the_valid_help_property():
+    """`helpText` is not in the SARIF spec and was dropped by every consumer."""
+    rule = _report([_finding()])["runs"][0]["tool"]["driver"]["rules"][0]
+
+    assert "helpText" not in rule
+    assert rule["help"]["text"]
+
+
+def test_rule_description_describes_the_rule_not_a_finding():
+    """The driver's rule list is shared metadata across every result."""
+    rule = _report([_finding()])["runs"][0]["tool"]["driver"]["rules"][0]
+
+    assert rule["shortDescription"]["text"] == (
+        "Workflows should have explicit permissions set to read-only by default"
+    )
+    assert rule["shortDescription"]["text"] != "Missing explicit permissions at workflow level"
+
+
+def test_rule_description_falls_back_for_synthetic_ids():
+    """`file_error` has no registered rule behind it."""
+    rule = _report([_finding(rule_id="file_error", message="broken yaml")])["runs"][0]["tool"][
+        "driver"
+    ]["rules"][0]
+
+    assert rule["shortDescription"]["text"] == "broken yaml"
+
+
+def test_results_carry_partial_fingerprints():
+    """Without these, Code Scanning reopens every alert when a file moves."""
+    result = _report([_finding()])["runs"][0]["results"][0]
+
+    assert FINGERPRINT_KEY in result["partialFingerprints"]
+    assert result["partialFingerprints"][FINGERPRINT_KEY]
+
+
+def test_fingerprints_match_the_baseline_fingerprints():
+    """One notion of finding identity across SARIF and baseline files."""
+    from ghast.core.suppressions import finding_fingerprint
+
+    finding = _finding()
+    result = _report([finding])["runs"][0]["results"][0]
+
+    assert result["partialFingerprints"][FINGERPRINT_KEY] == finding_fingerprint(finding)
+
+
+def test_fingerprint_is_stable_across_line_moves():
+    one = _report([_finding(line_number=3)])["runs"][0]["results"][0]
+    two = _report([_finding(line_number=99)])["runs"][0]["results"][0]
+
+    assert one["partialFingerprints"] == two["partialFingerprints"]
+
+
+def test_rules_declare_a_default_level_and_help_uri():
+    rule = _report([_finding()])["runs"][0]["tool"]["driver"]["rules"][0]
+
+    assert rule["defaultConfiguration"]["level"] == "error"
+    assert rule["helpUri"].startswith("https://")
+    assert rule["name"] == rule["id"]
+    assert "security" in rule["properties"]["tags"]
+
+
+def test_each_rule_appears_once_however_many_findings():
+    run = _report([_finding(), _finding(message="another"), _finding(rule_id="timeout")])["runs"][0]
+
+    ids = [rule["id"] for rule in run["tool"]["driver"]["rules"]]
+    assert sorted(ids) == ["permissions", "timeout"]
+    assert len(run["results"]) == 3
+
+
+def test_every_result_rule_id_has_a_rule_definition():
+    run = _report([_finding(), _finding(rule_id="timeout", severity="LOW")])["runs"][0]
+
+    defined = {rule["id"] for rule in run["tool"]["driver"]["rules"]}
+    for result in run["results"]:
+        assert result["ruleId"] in defined
