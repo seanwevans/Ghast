@@ -198,6 +198,65 @@ ghast report /path/to/repo --output report.html
 
 ---
 
+## 🤫 Accepting known findings
+
+A repository with existing findings cannot turn ghast into a blocking check if
+every run is red. Two ways to accept what is already there.
+
+### Inline comments
+
+Annotate the specific line, so the justification lives next to what it
+explains:
+
+```yaml
+steps:
+  # A trailing comment applies to its own line
+  - uses: actions/checkout@v3  # ghast: ignore[action_pinning]
+
+  # A comment on its own line applies to the next line with content,
+  # which leaves room for a real explanation.
+  # ghast: ignore[action_pinning] -- vendored fork, tracked in #42
+  - uses: internal/checkout@v3
+```
+
+- `# ghast: ignore` — every rule on that line
+- `# ghast: ignore[rule_id, other_rule]` — only those rules
+- `# ghast: ignore-file` / `# ghast: ignore-file[rule_id]` — the whole file
+- Anything after `--` is for humans; ghast does not read it
+
+A trailing comment never applies to the following line, so one annotation
+cannot quietly silence the step after it. Every scan prints how many findings
+were suppressed, so they stay visible.
+
+### Baseline files
+
+Record everything currently outstanding, then gate on **new** findings only:
+
+```bash
+# Record the current state and commit the result
+ghast baseline . --output ghast-baseline.json
+
+# Later scans report only findings not in the baseline
+ghast scan . --baseline ghast-baseline.json
+```
+
+```console
+$ ghast scan . --baseline ghast-baseline.json
+Ignored 12 finding(s) recorded in ghast-baseline.json
+⚠️ MEDIUM: Step 3 in job 'build' is not pinned to a specific commit SHA: some/new-action@v1
+```
+
+Findings are matched by a fingerprint of the rule, the repository-relative
+path, and the message — not the line number — so reformatting a workflow does
+not invalidate the file's entries. Messages for step-indexed rules do embed
+the step number, so inserting a step *above* an existing finding will report
+it as new; regenerate the baseline when that happens.
+
+Shrink the baseline as you fix things by regenerating it. It is a burndown
+list, not a permanent exemption.
+
+---
+
 ## ⚙️ Configuration File
 
 ghast can be configured using a YAML configuration file:

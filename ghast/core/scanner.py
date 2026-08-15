@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import yaml
 
 from ..utils.yaml_handler import get_position, load_yaml_file_with_positions
+from .suppressions import apply_suppressions, load_suppressions
 
 
 class Severity(Enum):
@@ -73,6 +74,9 @@ class WorkflowScanner:
         """
         self.strict = strict
         self.config = config or {}
+        #: Findings silenced by inline `# ghast: ignore` directives, so a run
+        #: can report that suppressions are in play rather than hiding it.
+        self.suppressed_count = 0
         from ..rules.engine import RuleEngine
 
         self.rule_engine = RuleEngine(config=self.config, strict=self.strict)
@@ -138,14 +142,18 @@ class WorkflowScanner:
                 severity_threshold=normalized_threshold,
             )
             normalized_findings = self._normalize_rule_ids(engine_findings)
-            findings.extend(
-                [
-                    finding
-                    for finding in normalized_findings
-                    if SEVERITY_LEVELS.index(normalize_severity(finding.severity))
-                    >= SEVERITY_LEVELS.index(normalized_threshold)
-                ]
-            )
+            above_threshold = [
+                finding
+                for finding in normalized_findings
+                if SEVERITY_LEVELS.index(normalize_severity(finding.severity))
+                >= SEVERITY_LEVELS.index(normalized_threshold)
+            ]
+
+            # Inline `# ghast: ignore` directives are read from the raw text,
+            # since the YAML parser discards comments.
+            kept, suppressed = apply_suppressions(above_threshold, load_suppressions(file_path))
+            self.suppressed_count += suppressed
+            findings.extend(kept)
 
         except Exception as e:
             findings.append(
@@ -233,6 +241,7 @@ def scan_repository(
         "severity_counts": {level: 0 for level in SEVERITY_LEVELS},
         "rule_counts": {},
         "fixable_findings": 0,
+        "suppressed_findings": 0,
     }
 
     if not workflow_dir.exists():
@@ -254,6 +263,7 @@ def scan_repository(
 
         all_findings.extend(file_findings)
 
+    stats["suppressed_findings"] = scanner.suppressed_count
     stats["end_time"] = datetime.now().isoformat()
 
     return all_findings, stats
