@@ -1,0 +1,18 @@
+- id: ghast
+  name: ghast (GitHub Actions security scan)
+  description: Audit GitHub Actions workflows for security misconfigurations
+  entry: ghast scan .
+  language: python
+  # ghast takes a single repository path, not a file list, and rules such as
+  # `permissions` reason about a whole workflow rather than a changed line.
+  # So the hook scans the repository whenever a workflow file is touched.
+  pass_filenames: false
+  files: ^\.github/workflows/.*\.ya?ml$
+
+- id: ghast-strict
+  name: ghast (fail only on HIGH and above)
+  description: Audit GitHub Actions workflows, failing only on serious findings
+  entry: ghast scan . --severity-threshold HIGH
+  language: python
+  pass_filenames: false
+  files: ^\.github/workflows/.*\.ya?ml$

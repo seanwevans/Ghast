@@ -83,6 +83,84 @@ ghast report /path/to/repo --output security-report.html
 ghast scan /path/to/repo --output sarif --output-file ghast-results.sarif
 ```
 
+---
+
+## 🤖 Use as a GitHub Action
+
+```yaml
+name: Workflow security
+on: [push, pull_request]
+
+permissions: read-all
+
+jobs:
+  ghast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: seanwevans/ghast@v1
+        with:
+          severity-threshold: HIGH
+```
+
+### Action inputs
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `path` | `.` | Repository root, or a single workflow file, to scan |
+| `severity-threshold` | `LOW` | Minimum severity to report and fail on |
+| `config` | — | Path to a ghast YAML config file |
+| `disable` | — | Whitespace-separated rule ids to disable |
+| `output` | `text` | `text`, `json`, `sarif` or `html` |
+| `output-file` | — | Write results here instead of stdout |
+| `fail-on-findings` | `true` | Fail the step when findings are reported |
+| `strict` | `false` | Enable strict mode |
+| `version` | — | PyPI version to install; defaults to the action's own source |
+| `python-version` | — | Set up this Python; defaults to the runner's |
+
+### Action outputs
+
+| Output | Description |
+|--------|-------------|
+| `exit-code` | `0` clean, `1` findings, `2` ghast failed to run |
+| `findings` | `true` when findings at or above the threshold were reported |
+
+### Upload to GitHub Code Scanning
+
+```yaml
+      - uses: seanwevans/ghast@v1
+        with:
+          output: sarif
+          output-file: ghast.sarif
+          fail-on-findings: false     # let Code Scanning own the gate
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ghast.sarif
+```
+
+That job needs `security-events: write`.
+
+---
+
+## 🪝 Use as a pre-commit hook
+
+Add to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/seanwevans/ghast
+    rev: v0.2.0
+    hooks:
+      - id: ghast
+```
+
+Use `ghast-strict` instead to fail only on `HIGH` and above. Both hooks run
+whenever a file under `.github/workflows/` changes and scan the whole
+repository, since rules like `permissions` reason about a complete workflow
+rather than a changed line.
+
+---
+
 ## 🧪 Testing
 
 Install test dependencies and run the suite with:
@@ -92,9 +170,9 @@ pip install -e .[test]
 pytest
 ```
 
-## 🛠️ Pre-commit Hooks
+## 🛠️ Contributing to ghast
 
-Set up the pre-commit hooks to automatically format and lint code before each commit:
+Set up the project's own pre-commit hooks to format and lint before each commit:
 
 ```bash
 pip install pre-commit
