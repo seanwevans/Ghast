@@ -23,6 +23,7 @@ from .core import (
     scan_repository,
     unknown_rule_names,
 )
+from .core.discovery import TargetKind, discover_targets
 from .core.scanner import ScannerError, normalize_severity
 from .core.suppressions import BaselineError, apply_baseline, build_baseline, load_baseline
 from .reports import generate_full_report, print_report, save_report
@@ -177,15 +178,16 @@ def _prepare_scan(
     else:
         if echo:
             click.echo(f"Scanning repository: {path}")
-        workflow_dir = path / ".github" / "workflows"
-        if not workflow_dir.exists():
-            raise GhastError(f"No workflows found at {workflow_dir}")
-        files_to_scan = list(workflow_dir.glob("*.y*ml"))
+        files_to_scan = discover_targets(repo_path)
         if not files_to_scan:
-            raise GhastError(f"No workflows found at {workflow_dir}")
+            raise GhastError(f"No workflows or actions found under {path}")
 
         if echo and show_file_count:
-            click.echo(f"Found {len(files_to_scan)} workflow file(s) to scan")
+            actions = sum(1 for t in files_to_scan if t.kind is TargetKind.ACTION)
+            summary = f"Found {len(files_to_scan)} file(s) to scan"
+            if actions:
+                summary += f" ({actions} composite action(s))"
+            click.echo(summary)
 
         try:
             findings, stats = scan_repository(
@@ -398,9 +400,8 @@ def fix(
 
     else:
         click.echo(f"Scanning repository: {path}")
-        workflow_dir = path / ".github" / "workflows"
-        if not workflow_dir.exists():
-            raise GhastError(f"No workflows found at {workflow_dir}")
+        if not discover_targets(repo_path):
+            raise GhastError(f"No workflows or actions found under {path}")
 
         findings, stats = scan_repository(
             repo_path=repo_path,
