@@ -334,6 +334,11 @@ def scan(
 @click.option("--interactive", is_flag=True, help="Confirm each fix individually")
 @click.option("--dry-run", is_flag=True, help="Show what would be fixed without making changes")
 @click.option(
+    "--backup",
+    is_flag=True,
+    help="Keep a .bak copy of each changed file (off by default; use version control)",
+)
+@click.option(
     "--severity-threshold",
     type=click.Choice(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
     default="LOW",
@@ -346,6 +351,7 @@ def fix(
     disable: Tuple[str, ...],
     interactive: bool,
     dry_run: bool,
+    backup: bool,
     severity_threshold: str,
 ) -> None:
     """Audit and apply safe fixes to GitHub Actions workflows
@@ -421,6 +427,7 @@ def fix(
             findings_by_file=findings_by_file,
             config=config_data,
             interactive=interactive,
+            backup=backup,
         )
 
         stats["fixes_applied"] = fixes_applied

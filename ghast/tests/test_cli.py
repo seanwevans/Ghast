@@ -184,8 +184,24 @@ def test_cli_fix(cli_runner, patchable_workflow_file, temp_dir):
     assert "Fix Summary" in result.output
     assert "Issues fixed" in result.output
 
+    # A successful fix used to leave a .bak next to every workflow it touched.
+    assert not os.path.exists(test_file + ".bak")
+
+
+def test_cli_fix_backup_flag_keeps_a_copy(cli_runner, patchable_workflow_file, temp_dir):
+    """--backup is opt-in for anyone not relying on version control."""
+    test_file = os.path.join(temp_dir, "backup_workflow.yml")
+    with open(patchable_workflow_file, "r") as src, open(test_file, "w") as dst:
+        original = src.read()
+        dst.write(original)
+
+    result = cli_runner.invoke(cli, ["fix", test_file, "--backup"])
+
+    assert result.exit_code == 0
     backup_file = test_file + ".bak"
     assert os.path.exists(backup_file)
+    with open(backup_file) as handle:
+        assert handle.read() == original
 
 
 def test_cli_fix_dry_run(cli_runner, patchable_workflow_file):

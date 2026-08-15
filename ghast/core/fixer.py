@@ -107,16 +107,23 @@ def dump_workflow(workflow: Any, yaml_handler: YAML) -> str:
 class Fixer:
     """Class for fixing GitHub Actions workflow issues"""
 
-    def __init__(self, config: Dict[str, Any], interactive: bool = False) -> None:
+    def __init__(
+        self, config: Dict[str, Any], interactive: bool = False, backup: bool = False
+    ) -> None:
         """
         Initialize the fixer
 
         Args:
             config: Configuration dictionary
             interactive: Whether to prompt for each fix
+            backup: Keep a ``.bak`` copy of each file that was changed. Off by
+                default: workflows live in version control, the rewrite is
+                verified before it is written, and the old behaviour left a
+                stray file next to every workflow it fixed.
         """
         self.config = config
         self.interactive = interactive
+        self.backup = backup
         self.fixes_applied = 0
         self.fixes_skipped = 0
 
@@ -167,8 +174,17 @@ class Fixer:
 
         workflow, yaml_handler = load_workflow_for_edit(file_path)
 
-        backup_path = f"{file_path}.bak"
-        shutil.copy2(file_path, backup_path)
+        # Rollback works from the original text held here rather than from a
+        # file on disk. A `.bak` was previously written on every run and only
+        # deleted when nothing was fixed, so a successful fix always left one
+        # behind for the user to find and clean up. Keeping the original in
+        # memory removes both the litter and the cleanup logic.
+        with open(file_path, "r", encoding="utf-8") as handle:
+            original = handle.read()
+
+        backup_path = f"{file_path}.bak" if self.backup else None
+        if backup_path is not None:
+            shutil.copy2(file_path, backup_path)
 
         try:
             for rule_id, rule_findings in findings_by_rule.items():
@@ -215,13 +231,17 @@ class Fixer:
                 self._verify_roundtrip(rendered, file_path)
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(rendered)
-            else:
+            elif backup_path is not None:
+                # Nothing changed, so a backup of an untouched file is litter
+                # even when the user asked for backups.
                 os.remove(backup_path)
 
         except Exception as e:
             click.echo(f"Error fixing {file_path}: {e}", err=True)
-            shutil.copy2(backup_path, file_path)
-            os.remove(backup_path)
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(original)
+            if backup_path is not None:
+                os.remove(backup_path)
             return 0, 0
 
         return self.fixes_applied, self.fixes_skipped
@@ -454,6 +474,7 @@ def fix_workflow_file(
     findings: List[Finding],
     config: Dict[str, Any],
     interactive: bool = False,
+    backup: bool = False,
 ) -> Tuple[int, int]:
     """
     Fix issues in a workflow file
@@ -463,11 +484,12 @@ def fix_workflow_file(
         findings: List of findings to fix
         config: Configuration dictionary
         interactive: Whether to prompt for each fix
+        backup: Keep a ``.bak`` copy of each changed file
 
     Returns:
         Tuple of (fixes_applied, fixes_skipped)
     """
-    fixer = Fixer(config, interactive)
+    fixer = Fixer(config, interactive, backup=backup)
     return fixer.fix_workflow_file(file_path, findings)
 
 
@@ -476,6 +498,7 @@ def fix_repository(
     findings_by_file: Dict[str, List[Finding]],
     config: Dict[str, Any],
     interactive: bool = False,
+    backup: bool = False,
 ) -> Tuple[int, int]:
     """
     Fix issues in all workflow files in a repository
@@ -485,6 +508,7 @@ def fix_repository(
         findings_by_file: Dictionary of file paths to findings
         config: Configuration dictionary
         interactive: Whether to prompt for each fix
+        backup: Keep a ``.bak`` copy of each changed file
 
     Returns:
         Tuple of (total_fixes_applied, total_fixes_skipped)
@@ -492,7 +516,7 @@ def fix_repository(
     total_fixes_applied = 0
     total_fixes_skipped = 0
 
-    fixer = Fixer(config, interactive)
+    fixer = Fixer(config, interactive, backup=backup)
 
     for file_path, findings in findings_by_file.items():
         if not findings:
