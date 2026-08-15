@@ -168,22 +168,6 @@ class WorkflowScanner:
 
         return findings
 
-    def _normalize_rule_ids(self, findings: List[Finding]) -> List[Finding]:
-        """Normalize engine rule IDs to scanner-compatible check_* naming."""
-        normalized: List[Finding] = []
-        for finding in findings:
-            normalized_rule_id = finding.rule_id
-
-            if finding.rule_id.startswith("rule_error."):
-                _, _, raw_rule = finding.rule_id.partition(".")
-                if not raw_rule.startswith("check_"):
-                    normalized_rule_id = f"rule_error.check_{raw_rule}"
-            elif not finding.rule_id.startswith("check_"):
-                normalized_rule_id = f"check_{finding.rule_id}"
-
-            normalized.append(replace(finding, rule_id=normalized_rule_id))
-        return normalized
-
     def scan_directory(
         self, directory_path: str, severity_threshold: str = Severity.LOW.value
     ) -> List[Finding]:

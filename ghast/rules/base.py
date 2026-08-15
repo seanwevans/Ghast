@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from ..core import Finding
 from ..utils.yaml_handler import get_position
+from .expressions import find_dangerous_serialization
 
 
 def _is_false(value: Any) -> bool:
@@ -25,6 +26,12 @@ def _is_true(value: Any) -> bool:
 
 class Rule(ABC):
     """Base class for all ghast security rules"""
+
+    #: Whether the rule runs unless configuration says otherwise. Rules that
+    #: are too noisy to run by default set this to False, which makes the
+    #: default visible in the generated config instead of being hardcoded in
+    #: __init__ where no configuration could reach it.
+    default_enabled: bool = True
 
     def __init__(
         self,
@@ -49,7 +56,7 @@ class Rule(ABC):
         self.description = description
         self.remediation = remediation
         self.category = category
-        self.enabled = True
+        self.enabled = self.default_enabled
 
         self.can_fix = False
 
@@ -514,13 +521,23 @@ class TokenRule(Rule):
                     )
                 )
 
-        if "toJson(secrets)" in workflow_str:
+        # Previously a case-sensitive substring test for the exact string
+        # "toJson(secrets)", so `toJSON(secrets)` — GitHub's own spelling in
+        # the docs — and `toJSON(github.event)` both went unnoticed.
+        serialization = find_dangerous_serialization(workflow_str)
+        if serialization is not None:
+            exposes = (
+                "every secret"
+                if "secrets" in serialization.lower()
+                else "the entire attacker-controlled event payload"
+            )
             findings.append(
                 self.create_finding(
-                    message="Dangerous 'toJson(secrets)' usage exposes all secrets",
+                    message=f"Dangerous '{serialization}' usage exposes {exposes}",
                     file_path=file_path,
                     remediation=(
-                        "Never use toJson(secrets), reference individual secrets explicitly"
+                        "Reference the individual values you need explicitly rather "
+                        "than serializing a whole context"
                     ),
                     can_fix=False,
                     severity="CRITICAL",

@@ -56,7 +56,7 @@ def test_scanner_initialization():
 
 
 def test_scan_file_matches_rule_engine_findings(patchable_workflow_file):
-    """Scanner should delegate execution and preserve finding output shape/content."""
+    """Scanner should delegate execution and pass findings through unchanged."""
 
     scanner = WorkflowScanner()
     findings = scanner.scan_file(patchable_workflow_file)
@@ -65,23 +65,15 @@ def test_scan_file_matches_rule_engine_findings(patchable_workflow_file):
     engine = RuleEngine()
     expected_findings = engine.scan_workflow(workflow, patchable_workflow_file)
 
-    assert [
-        (f.rule_id, f.severity, f.message, f.line_number, f.column, f.can_fix) for f in findings
-    ] == [
-        (
-            (
-                f"rule_error.check_{f.rule_id.split('.', 1)[1]}"
-                if f.rule_id.startswith("rule_error.")
-                else (f.rule_id if f.rule_id.startswith("check_") else f"check_{f.rule_id}")
-            ),
-            f.severity,
-            f.message,
-            f.line_number,
-            f.column,
-            f.can_fix,
-        )
-        for f in expected_findings
-    ]
+    def shape(collection):
+        return [
+            (f.rule_id, f.severity, f.message, f.line_number, f.column, f.can_fix)
+            for f in collection
+        ]
+
+    # The scanner used to rewrite every rule_id to a `check_`-prefixed form,
+    # giving one rule two names depending on where you looked at it.
+    assert shape(findings) == shape(expected_findings)
 
 
 def test_finding_severity_validation():
@@ -335,7 +327,7 @@ def test_scan_file(patchable_workflow_file):
     findings = scanner.scan_file(patchable_workflow_file)
 
     assert len(findings) > 0
-    assert any(f.rule_id == "check_permissions" for f in findings)
+    assert any(f.rule_id == "permissions" for f in findings)
 
     for finding in findings:
         assert isinstance(finding, Finding)

@@ -26,9 +26,9 @@ from ghast.core.scanner import Severity
 
 def test_default_config():
     """Test that DEFAULT_CONFIG contains expected keys."""
-    assert "check_timeout" in DEFAULT_CONFIG
-    assert "check_shell" in DEFAULT_CONFIG
-    assert "check_deprecated" in DEFAULT_CONFIG
+    assert "timeout" in DEFAULT_CONFIG
+    assert "shell_specification" in DEFAULT_CONFIG
+    assert "deprecated_actions" in DEFAULT_CONFIG
     assert "severity_thresholds" in DEFAULT_CONFIG
     assert "auto_fix" in DEFAULT_CONFIG
     assert "default_timeout_minutes" in DEFAULT_CONFIG
@@ -40,7 +40,7 @@ def test_load_config_default():
     config = load_config()
     assert config is not None
     assert isinstance(config, dict)
-    assert "check_timeout" in config
+    assert "timeout" in config
 
 
 def test_load_config_with_path(temp_dir):
@@ -48,9 +48,9 @@ def test_load_config_with_path(temp_dir):
 
     config_path = os.path.join(temp_dir, "ghast.yml")
     test_config = {
-        "check_timeout": False,
-        "check_shell": True,
-        "severity_thresholds": {"check_deprecated": "HIGH"},
+        "timeout": False,
+        "shell_specification": True,
+        "severity_thresholds": {"deprecated_actions": "HIGH"},
     }
 
     with open(config_path, "w") as f:
@@ -58,9 +58,9 @@ def test_load_config_with_path(temp_dir):
 
     config = load_config(config_path)
 
-    assert config["check_timeout"] is False
-    assert config["check_shell"] is True
-    assert config["severity_thresholds"]["check_deprecated"] == "HIGH"
+    assert config["timeout"] is False
+    assert config["shell_specification"] is True
+    assert config["severity_thresholds"]["deprecated_actions"] == "HIGH"
 
     assert "default_timeout_minutes" in config
 
@@ -110,10 +110,10 @@ def test_auto_discovery_invalid_config_raises(monkeypatch, temp_dir):
 def test_validate_config_valid():
     """Test config validation with valid config."""
     valid_config = {
-        "check_timeout": True,
-        "check_shell": False,
-        "severity_thresholds": {"check_timeout": "MEDIUM", "check_shell": "HIGH"},
-        "auto_fix": {"enabled": True, "rules": {"check_timeout": True}},
+        "timeout": True,
+        "shell_specification": False,
+        "severity_thresholds": {"timeout": "MEDIUM", "shell_specification": "HIGH"},
+        "auto_fix": {"enabled": True, "rules": {"timeout": True}},
         "default_timeout_minutes": 10,
     }
 
@@ -122,7 +122,7 @@ def test_validate_config_valid():
 
 def test_validate_config_invalid_rule_type():
     """Test config validation with invalid rule type."""
-    invalid_config = {"check_timeout": "not_a_boolean"}
+    invalid_config = {"timeout": "not_a_boolean"}
 
     with pytest.raises(ConfigurationError):
         validate_config(invalid_config)
@@ -130,7 +130,7 @@ def test_validate_config_invalid_rule_type():
 
 def test_validate_config_invalid_severity():
     """Test config validation with invalid severity level."""
-    invalid_config = {"severity_thresholds": {"check_timeout": "SUPER_HIGH"}}  # Invalid severity
+    invalid_config = {"severity_thresholds": {"timeout": "SUPER_HIGH"}}  # Invalid severity
 
     with pytest.raises(ConfigurationError):
         validate_config(invalid_config)
@@ -162,9 +162,9 @@ def test_validate_config_unknown_key():
 
 def test_validate_config_unknown_key_with_suggestion():
     """Test unknown key error includes likely intended keys."""
-    invalid_config = {"check_timeot": True}
+    invalid_config = {"timeot": True}
 
-    with pytest.raises(ConfigurationError, match=r"Did you mean: .*check_timeout"):
+    with pytest.raises(ConfigurationError, match=r"Did you mean: .*timeout"):
         validate_config(invalid_config)
 
 
@@ -172,34 +172,34 @@ def test_validate_config_unknown_key_without_suggestion():
     """Test unknown key error still references sample config when no suggestions exist."""
     invalid_config = {"zzzzzzzzzz": True}
 
-    with pytest.raises(ConfigurationError, match="examples/ghast.yml"):
+    with pytest.raises(ConfigurationError, match="ghast rules"):
         validate_config(invalid_config)
 
 
 def test_merge_configs():
     """Test merging configurations."""
     base_config = {
-        "check_timeout": True,
-        "check_shell": True,
-        "severity_thresholds": {"check_timeout": "LOW", "check_shell": "LOW"},
+        "timeout": True,
+        "shell_specification": True,
+        "severity_thresholds": {"timeout": "LOW", "shell_specification": "LOW"},
         "simple_key": "base_value",
     }
 
     override_config = {
-        "check_timeout": False,
-        "severity_thresholds": {"check_timeout": "HIGH"},
+        "timeout": False,
+        "severity_thresholds": {"timeout": "HIGH"},
         "new_key": "new_value",
         "simple_key": "override_value",
     }
 
     merged = merge_configs(base_config, override_config)
 
-    assert merged["check_timeout"] is False
-    assert merged["severity_thresholds"]["check_timeout"] == "HIGH"
+    assert merged["timeout"] is False
+    assert merged["severity_thresholds"]["timeout"] == "HIGH"
     assert merged["simple_key"] == "override_value"
 
-    assert merged["check_shell"] is True
-    assert merged["severity_thresholds"]["check_shell"] == "LOW"
+    assert merged["shell_specification"] is True
+    assert merged["severity_thresholds"]["shell_specification"] == "LOW"
 
     assert merged["new_key"] == "new_value"
 
@@ -210,32 +210,32 @@ def test_generate_default_config():
 
     config = yaml.safe_load(config_str)
     assert config is not None
-    assert "check_timeout" in config
+    assert "timeout" in config
     assert "severity_thresholds" in config
     assert "auto_fix" in config
 
 
 def test_validate_severity_thresholds_helper():
     """Test helper for validating severity thresholds."""
-    valid = {"severity_thresholds": {"check_timeout": "HIGH"}}
+    valid = {"severity_thresholds": {"timeout": "HIGH"}}
     _validate_severity_thresholds(valid)
-    assert valid["severity_thresholds"]["check_timeout"] == "HIGH"
+    assert valid["severity_thresholds"]["timeout"] == "HIGH"
 
-    mixed_case = {"severity_thresholds": {"check_timeout": "mEdIuM"}}
+    mixed_case = {"severity_thresholds": {"timeout": "mEdIuM"}}
     _validate_severity_thresholds(mixed_case)
-    assert mixed_case["severity_thresholds"]["check_timeout"] == "MEDIUM"
+    assert mixed_case["severity_thresholds"]["timeout"] == "MEDIUM"
 
-    invalid = {"severity_thresholds": {"check_timeout": "INVALID"}}
+    invalid = {"severity_thresholds": {"timeout": "INVALID"}}
     with pytest.raises(ConfigurationError):
         _validate_severity_thresholds(invalid)
 
 
 def test_validate_auto_fix_helper():
     """Test helper for validating auto_fix section."""
-    valid = {"auto_fix": {"enabled": True, "rules": {"check_timeout": False}}}
+    valid = {"auto_fix": {"enabled": True, "rules": {"timeout": False}}}
     _validate_auto_fix(valid)
 
-    invalid = {"auto_fix": {"rules": {"check_timeout": "yes"}}}
+    invalid = {"auto_fix": {"rules": {"timeout": "yes"}}}
     with pytest.raises(ConfigurationError):
         _validate_auto_fix(invalid)
 
@@ -254,11 +254,11 @@ def test_load_config_returns_deep_copy():
     """Mutating a loaded config should not affect DEFAULT_CONFIG."""
     config = load_config()
 
-    config["auto_fix"]["rules"]["check_timeout"] = False
-    config["severity_thresholds"]["check_timeout"] = Severity.CRITICAL
+    config["auto_fix"]["rules"]["timeout"] = False
+    config["severity_thresholds"]["timeout"] = Severity.CRITICAL
 
-    assert DEFAULT_CONFIG["auto_fix"]["rules"]["check_timeout"] is True
-    assert DEFAULT_CONFIG["severity_thresholds"]["check_timeout"] == Severity.LOW
+    assert DEFAULT_CONFIG["auto_fix"]["rules"]["timeout"] is True
+    assert DEFAULT_CONFIG["severity_thresholds"]["timeout"] == Severity.LOW.value
 
 
 def test_generate_default_config_to_file(temp_dir):
@@ -272,16 +272,16 @@ def test_generate_default_config_to_file(temp_dir):
         config = yaml.safe_load(f)
 
     assert config is not None
-    assert "check_timeout" in config
+    assert "timeout" in config
 
 
 def test_save_config(temp_dir):
     """Test saving config to file."""
     output_path = os.path.join(temp_dir, "saved_config.yml")
     config = {
-        "check_timeout": False,
-        "check_shell": True,
-        "severity_thresholds": {"check_deprecated": "HIGH"},
+        "timeout": False,
+        "shell_specification": True,
+        "severity_thresholds": {"deprecated_actions": "HIGH"},
     }
 
     save_config(config, output_path)
@@ -291,16 +291,16 @@ def test_save_config(temp_dir):
     with open(output_path, "r") as f:
         loaded_config = yaml.safe_load(f)
 
-    assert loaded_config["check_timeout"] is False
-    assert loaded_config["check_shell"] is True
-    assert loaded_config["severity_thresholds"]["check_deprecated"] == "HIGH"
+    assert loaded_config["timeout"] is False
+    assert loaded_config["shell_specification"] is True
+    assert loaded_config["severity_thresholds"]["deprecated_actions"] == "HIGH"
 
 
 def test_save_config_nonexistent_dir(temp_dir):
     """Test saving config to a non-existent directory."""
 
     output_path = os.path.join(temp_dir, "nonexistent", "saved_config.yml")
-    config = {"check_timeout": False}
+    config = {"timeout": False}
 
     save_config(config, output_path)
 
@@ -309,23 +309,23 @@ def test_save_config_nonexistent_dir(temp_dir):
 
 def test_disable_rules():
     """Test disabling specific rules."""
-    config = {"check_timeout": True, "check_shell": True, "check_deprecated": True}
+    config = {"timeout": True, "shell_specification": True, "deprecated_actions": True}
 
-    updated = disable_rules(config, ["check_timeout", "check_shell"])
+    updated = disable_rules(config, ["timeout", "shell_specification"])
 
-    assert config["check_timeout"] is True
-    assert config["check_shell"] is True
+    assert config["timeout"] is True
+    assert config["shell_specification"] is True
 
-    assert updated["check_timeout"] is False
-    assert updated["check_shell"] is False
-    assert updated["check_deprecated"] is True
+    assert updated["timeout"] is False
+    assert updated["shell_specification"] is False
+    assert updated["deprecated_actions"] is True
 
 
 def test_disable_nonexistent_rules():
     """Test disabling rules that don't exist in the config."""
-    config = {"check_timeout": True}
+    config = {"timeout": True}
 
     updated = disable_rules(config, ["nonexistent_rule"])
 
-    assert updated["check_timeout"] is True
+    assert updated["timeout"] is True
     assert "nonexistent_rule" not in updated

@@ -3,49 +3,105 @@ fixer.py - Automatic fixing for GitHub Actions workflows
 
 This module provides functionality to automatically fix common security issues
 in GitHub Actions workflows.
+
+Rewriting is done with ruamel.yaml in round-trip mode. A plain PyYAML
+load/dump cycle is not safe for workflow files: it resolves ``on:`` to the
+boolean ``True`` under YAML 1.1, discards every comment, and re-emits block
+scalars as folded strings. All three silently corrupt the file being repaired.
 """
 
+import io
 import os
 import re
 import shutil
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, Dict, List, Tuple
 
 import click
-import yaml
-from yaml.nodes import MappingNode, Node
+from ruamel.yaml import YAML
+from ruamel.yaml.comments import CommentedMap
 
 from .scanner import Finding
 
+# ruamel wraps long plain scalars at 80 columns by default, which would reflow
+# `run:` bodies and long `if:` expressions. Workflow lines are never too long
+# to keep as-is.
+_MAX_LINE_WIDTH = 4096
 
-class SafeLoader(yaml.SafeLoader):
-    """Custom YAML loader that preserves line numbers"""
-
-    def __init__(self, stream: Any) -> None:
-        super(SafeLoader, self).__init__(stream)
-
-    def compose_node(self, parent: Any, index: Any) -> Node:
-        """Override to add line information"""
-        node = super(SafeLoader, self).compose_node(parent, index)
-        assert node is not None
-        node.start_mark.line = self.line
-        node.start_mark.column = self.column
-        return node
+_SEQUENCE_ITEM = re.compile(r"^(?P<indent> *)- ")
+_MAPPING_KEY = re.compile(r"^(?P<indent> *)[^\s#-][^:]*:\s*$")
 
 
-class SafeDumper(yaml.SafeDumper):
-    """Custom YAML dumper that preserves formatting"""
+def detect_sequence_indent(source: str) -> Tuple[int, int]:
+    """Infer the block-sequence indentation style used by a document.
 
-    pass
+    GitHub Actions workflows are written in two common styles::
+
+        steps:              steps:
+          - uses: a         - uses: a
+
+    ruamel needs this configured up front, and guessing wrong reindents every
+    list in the file. Returns the ``(sequence, offset)`` pair for
+    ``YAML.indent``, defaulting to the indented style when a file has no block
+    sequences to learn from.
+
+    Args:
+        source: Raw text of the YAML document.
+
+    Returns:
+        Tuple of (sequence, offset) suitable for ``YAML.indent``.
+    """
+    previous_key_indent = None
+
+    for line in source.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+
+        item = _SEQUENCE_ITEM.match(line)
+        if item is not None and previous_key_indent is not None:
+            offset = len(item.group("indent")) - previous_key_indent
+            if offset >= 0:
+                # ruamel expresses this as the dash column (offset) inside a
+                # block indented by `sequence` from the parent key.
+                return offset + 2, offset
+
+        key = _MAPPING_KEY.match(line)
+        previous_key_indent = len(key.group("indent")) if key is not None else None
+
+    return 4, 2
 
 
-def construct_mapping(self: "SafeLoader", node: MappingNode, deep: bool = False) -> Dict[str, Any]:
-    mapping = cast(Dict[str, Any], super(SafeLoader, self).construct_mapping(node, deep=deep))
-    mapping["__line__"] = node.start_mark.line
-    mapping["__column__"] = node.start_mark.column
-    return mapping
+def _build_yaml(source: str) -> YAML:
+    """Create a round-trip YAML handler matched to a document's style."""
+    yaml_handler = YAML()  # round-trip mode
+    yaml_handler.preserve_quotes = True
+    yaml_handler.width = _MAX_LINE_WIDTH
+    sequence, offset = detect_sequence_indent(source)
+    yaml_handler.indent(mapping=2, sequence=sequence, offset=offset)
+    return yaml_handler
 
 
-SafeLoader.add_constructor(yaml.resolver.Resolver.DEFAULT_MAPPING_TAG, construct_mapping)
+def load_workflow_for_edit(file_path: str) -> Tuple[Any, YAML]:
+    """Load a workflow preserving comments, quoting, and scalar styles.
+
+    Args:
+        file_path: Path to the workflow file.
+
+    Returns:
+        Tuple of (workflow, yaml_handler); pass the handler back to
+        :func:`dump_workflow` so the document is written in its original style.
+    """
+    with open(file_path, "r", encoding="utf-8") as handle:
+        source = handle.read()
+
+    yaml_handler = _build_yaml(source)
+    return yaml_handler.load(source), yaml_handler
+
+
+def dump_workflow(workflow: Any, yaml_handler: YAML) -> str:
+    """Serialize a workflow loaded by :func:`load_workflow_for_edit`."""
+    buffer = io.StringIO()
+    yaml_handler.dump(workflow, buffer)
+    return buffer.getvalue()
 
 
 class Fixer:
@@ -64,12 +120,15 @@ class Fixer:
         self.fixes_applied = 0
         self.fixes_skipped = 0
 
+        # Keyed by rule id, matching what findings actually carry. These were
+        # previously keyed by config-file names ("check_shell",
+        # "check_deprecated") that no finding ever used, so those two fixers
+        # could never run.
         self.fixers = {
-            "check_timeout": self.fix_timeout,
-            "check_shell": self.fix_shell,
-            "check_deprecated": self.fix_deprecated_actions,
-            "check_workflow_name": self.fix_workflow_name,
-            "check_runs_on": self.fix_runs_on,
+            "timeout": self.fix_timeout,
+            "shell_specification": self.fix_shell,
+            "deprecated_actions": self.fix_deprecated_actions,
+            "workflow_name": self.fix_workflow_name,
         }
 
     def fix_workflow_file(self, file_path: str, findings: List[Finding]) -> Tuple[int, int]:
@@ -106,8 +165,7 @@ class Fixer:
         if not findings_by_rule:
             return 0, 0
 
-        with open(file_path, "r", encoding="utf-8") as f:
-            workflow = yaml.load(f, Loader=SafeLoader)
+        workflow, yaml_handler = load_workflow_for_edit(file_path)
 
         backup_path = f"{file_path}.bak"
         shutil.copy2(file_path, backup_path)
@@ -149,16 +207,15 @@ class Fixer:
                         self.fixes_skipped += 1
 
             self._clean_workflow(workflow)
-            with open(file_path, "w", encoding="utf-8") as f:
-                yaml.dump(
-                    workflow,
-                    f,
-                    Dumper=SafeDumper,
-                    sort_keys=False,
-                    default_flow_style=False,
-                )
 
-            if self.fixes_applied == 0:
+            # Only touch the file when something actually changed, so a no-op
+            # run cannot introduce incidental reformatting.
+            if self.fixes_applied > 0:
+                rendered = dump_workflow(workflow, yaml_handler)
+                self._verify_roundtrip(rendered, file_path)
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(rendered)
+            else:
                 os.remove(backup_path)
 
         except Exception as e:
@@ -168,6 +225,37 @@ class Fixer:
             return 0, 0
 
         return self.fixes_applied, self.fixes_skipped
+
+    def _verify_roundtrip(self, rendered: str, file_path: str) -> None:
+        """Re-parse rendered output before it overwrites a workflow.
+
+        A fixer that silently breaks CI is worse than one that declines to run,
+        so the serialized document is checked for the invariants that make a
+        workflow runnable at all.
+
+        Args:
+            rendered: The serialized document about to be written.
+            file_path: Path being written, used in error messages.
+
+        Raises:
+            ValueError: If the output is unparseable or has lost its triggers.
+        """
+        reloaded = YAML().load(rendered)
+
+        if not isinstance(reloaded, dict):
+            raise ValueError(f"fix produced a non-mapping document for {file_path}")
+
+        if "jobs" not in reloaded:
+            raise ValueError(f"fix dropped the 'jobs' section of {file_path}")
+
+        # `on` resolving to the boolean True is the specific YAML 1.1 failure
+        # this module exists to avoid; a workflow with no `on:` key never runs.
+        if "on" not in reloaded:
+            if True in reloaded:
+                raise ValueError(
+                    f"fix converted the 'on:' trigger of {file_path} into a boolean key"
+                )
+            raise ValueError(f"fix dropped the 'on:' triggers of {file_path}")
 
     def _clean_workflow(self, obj: Any) -> None:
         """Remove line/column metadata from workflow objects before dumping."""
@@ -233,27 +321,23 @@ class Fixer:
 
         if job_id in jobs:
             steps = jobs[job_id].get("steps", [])
-            # Some checks report steps using zero-based numbering while others
-            # use one-based. Attempt both interpretations to ensure the
-            # correct step is fixed.
-            fixed = False
-            has_position_metadata = any(
-                isinstance(step, dict) and "__line__" in step for step in steps
-            )
-            candidate_indices = (
-                (step_number, step_number - 1)
-                if has_position_metadata
-                else (step_number - 1, step_number)
-            )
-            for step_idx in candidate_indices:
-                if 0 <= step_idx < len(steps):
-                    step = steps[step_idx]
-                    if "run" in step and "\n" in step["run"] and "shell" not in step:
-                        step["shell"] = "bash"
-                        fixed = True
-                        break
 
-            return fixed
+            # Rules report steps one-based (`step_idx + 1` in
+            # StepRule.check_step_shell), so the reported number maps to
+            # exactly one list index. The previous implementation guessed
+            # between two candidates, which meant a finding for one step could
+            # silently add `shell:` to its neighbour instead.
+            step_idx = step_number - 1
+            if 0 <= step_idx < len(steps):
+                step = steps[step_idx]
+                if (
+                    isinstance(step, dict)
+                    and isinstance(step.get("run"), str)
+                    and "\n" in step["run"]
+                    and "shell" not in step
+                ):
+                    step["shell"] = "bash"
+                    return True
 
         return False
 
@@ -313,10 +397,18 @@ class Fixer:
 
         workflow_name = os.path.splitext(file_name)[0].replace("-", " ").replace("_", " ").title()
 
+        # Place "name" first for readability. On a round-trip document this
+        # must be an in-place insert: clearing and rebuilding the mapping would
+        # detach every comment anchored to the keys being moved.
+        if isinstance(workflow, CommentedMap):
+            if "name" in workflow:
+                workflow["name"] = workflow_name
+            else:
+                workflow.insert(0, "name", workflow_name)
+            return True
+
         workflow["name"] = workflow_name
 
-        # Reorder keys so that the new "name" field appears at the top of the
-        # workflow for readability.
         keys = list(workflow.keys())
         keys.remove("name")
         ordered_workflow = {"name": workflow_name}

@@ -21,7 +21,7 @@ def test_fixer_initialization():
     assert fixer.fixes_skipped == 0
     assert hasattr(fixer, "fixers")
 
-    config = {"auto_fix": {"rules": {"check_timeout": False, "check_shell": True}}}
+    config = {"auto_fix": {"rules": {"timeout": False, "shell_specification": True}}}
     fixer = Fixer(config, interactive=True)
     assert fixer.interactive is True
     assert fixer.config == config
@@ -33,7 +33,7 @@ def test_fix_timeout(patchable_workflow_file):
         workflow = yaml.safe_load(f)
 
     finding = Finding(
-        rule_id="check_timeout",
+        rule_id="timeout",
         severity="LOW",
         message="Job 'build' has 6 steps but no timeout-minutes set",
         file_path=patchable_workflow_file,
@@ -54,7 +54,7 @@ def test_fix_shell(patchable_workflow_file):
         workflow = yaml.safe_load(f)
 
     finding = Finding(
-        rule_id="check_shell",
+        rule_id="shell_specification",
         severity="LOW",
         message="Multiline script in job 'build' step 2 has no shell specified",
         file_path=patchable_workflow_file,
@@ -78,7 +78,7 @@ def test_fix_shell_does_not_modify_other_steps(patchable_workflow_file):
     assert "shell" not in steps[2]
 
     finding = Finding(
-        rule_id="check_shell",
+        rule_id="shell_specification",
         severity="LOW",
         message="Multiline script in job 'build' step 2 has no shell specified",
         file_path=patchable_workflow_file,
@@ -100,7 +100,7 @@ def test_fix_deprecated_actions(patchable_workflow_file):
         workflow = yaml.safe_load(f)
 
     finding = Finding(
-        rule_id="check_deprecated",
+        rule_id="deprecated_actions",
         severity="MEDIUM",
         message="Deprecated action 'actions/checkout@v1' in job 'build' step 0",
         file_path=patchable_workflow_file,
@@ -127,7 +127,7 @@ def test_fix_workflow_name(patchable_workflow_file):
         del workflow["name"]
 
     finding = Finding(
-        rule_id="check_workflow_name",
+        rule_id="workflow_name",
         severity="LOW",
         message="Missing workflow name (top-level 'name' field)",
         file_path=patchable_workflow_file,
@@ -155,7 +155,7 @@ def test_fix_workflow_file(patchable_workflow_file, temp_dir):
 
     findings = [
         Finding(
-            rule_id="check_timeout",
+            rule_id="timeout",
             severity="LOW",
             message="Job 'build' has 6 steps but no timeout-minutes set",
             file_path=test_file,
@@ -163,7 +163,7 @@ def test_fix_workflow_file(patchable_workflow_file, temp_dir):
             can_fix=True,
         ),
         Finding(
-            rule_id="check_workflow_name",
+            rule_id="workflow_name",
             severity="LOW",
             message="Missing workflow name (top-level 'name' field)",
             file_path=test_file,
@@ -171,7 +171,7 @@ def test_fix_workflow_file(patchable_workflow_file, temp_dir):
             can_fix=True,
         ),
         Finding(
-            rule_id="check_shell",
+            rule_id="shell_specification",
             severity="LOW",
             message="Multiline script in job 'build' step 2 has no shell specified",
             file_path=test_file,
@@ -179,7 +179,7 @@ def test_fix_workflow_file(patchable_workflow_file, temp_dir):
             can_fix=True,
         ),
         Finding(
-            rule_id="check_deprecated",
+            rule_id="deprecated_actions",
             severity="MEDIUM",
             message="Deprecated action 'actions/checkout@v1' in job 'build' step 0",
             file_path=test_file,
@@ -192,10 +192,10 @@ def test_fix_workflow_file(patchable_workflow_file, temp_dir):
         "auto_fix": {
             "enabled": True,
             "rules": {
-                "check_timeout": True,
-                "check_workflow_name": True,
-                "check_shell": True,
-                "check_deprecated": True,
+                "timeout": True,
+                "workflow_name": True,
+                "shell_specification": True,
+                "deprecated_actions": True,
             },
         },
         "default_action_versions": {"actions/checkout@v1": "actions/checkout@v3"},
@@ -211,7 +211,10 @@ def test_fix_workflow_file(patchable_workflow_file, temp_dir):
 
     assert "name" in fixed_workflow
     assert fixed_workflow["jobs"]["build"]["timeout-minutes"] == 15
-    assert "shell" in fixed_workflow["jobs"]["build"]["steps"][2]
+    # Rules number steps one-based, so "step 2" is list index 1. The previous
+    # fixer resolved this to index 2 and this assertion tracked that bug.
+    assert "shell" in fixed_workflow["jobs"]["build"]["steps"][1]
+    assert "shell" not in fixed_workflow["jobs"]["build"]["steps"][2]
     assert fixed_workflow["jobs"]["build"]["steps"][0]["uses"] == "actions/checkout@v3"
 
 
@@ -223,7 +226,7 @@ def test_fix_workflow_file_disabled_rules(patchable_workflow_file, temp_dir):
 
     findings = [
         Finding(
-            rule_id="check_timeout",
+            rule_id="timeout",
             severity="LOW",
             message="Job 'build' has 6 steps but no timeout-minutes set",
             file_path=test_file,
@@ -231,7 +234,7 @@ def test_fix_workflow_file_disabled_rules(patchable_workflow_file, temp_dir):
             can_fix=True,
         ),
         Finding(
-            rule_id="check_workflow_name",
+            rule_id="workflow_name",
             severity="LOW",
             message="Missing workflow name (top-level 'name' field)",
             file_path=test_file,
@@ -243,7 +246,7 @@ def test_fix_workflow_file_disabled_rules(patchable_workflow_file, temp_dir):
     config = {
         "auto_fix": {
             "enabled": True,
-            "rules": {"check_timeout": False, "check_workflow_name": True},  # Disabled
+            "rules": {"timeout": False, "workflow_name": True},  # Disabled
         }
     }
 
@@ -267,7 +270,7 @@ def test_fix_workflow_file_auto_fix_disabled(patchable_workflow_file, temp_dir, 
 
     findings = [
         Finding(
-            rule_id="check_timeout",
+            rule_id="timeout",
             severity="LOW",
             message="Job 'build' has 6 steps but no timeout-minutes set",
             file_path=test_file,
@@ -275,7 +278,7 @@ def test_fix_workflow_file_auto_fix_disabled(patchable_workflow_file, temp_dir, 
             can_fix=True,
         ),
         Finding(
-            rule_id="check_workflow_name",
+            rule_id="workflow_name",
             severity="LOW",
             message="Missing workflow name (top-level 'name' field)",
             file_path=test_file,
@@ -311,7 +314,7 @@ def test_fix_repository(mock_repo):
 
         findings_by_file[str(file_path)] = [
             Finding(
-                rule_id="check_workflow_name",
+                rule_id="workflow_name",
                 severity="LOW",
                 message="Missing workflow name (top-level 'name' field)",
                 file_path=str(file_path),
@@ -320,7 +323,7 @@ def test_fix_repository(mock_repo):
             )
         ]
 
-    config = {"auto_fix": {"enabled": True, "rules": {"check_workflow_name": True}}}
+    config = {"auto_fix": {"enabled": True, "rules": {"workflow_name": True}}}
 
     fixes_applied, fixes_skipped = fix_repository(mock_repo, findings_by_file, config)
 
@@ -338,7 +341,7 @@ def test_fix_nonexistent_file(temp_dir):
 
     findings = [
         Finding(
-            rule_id="check_workflow_name",
+            rule_id="workflow_name",
             severity="LOW",
             message="Missing workflow name",
             file_path=nonexistent_file,

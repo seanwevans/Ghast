@@ -4,76 +4,55 @@ config.py - Configuration management for ghast
 This module handles loading, validating, and managing configuration for the ghast tool.
 """
 
-import copy
 import difflib
 import os
+import sys
 import yaml
 from typing import Any, Dict, Optional, List, cast
 
 from .scanner import Severity, normalize_severity
 
-DEFAULT_CONFIG = {
-    "check_timeout": True,
-    "check_shell": True,
-    "check_deprecated": True,
-    "check_runs_on": True,
-    "check_workflow_name": True,
-    "check_continue_on_error": True,
-    "check_tokens": True,
-    "check_inline_bash": True,
-    "check_reusable_inputs": True,
-    "check_ppe_vulnerabilities": True,
-    "check_command_injection": True,
-    "check_env_injection": True,
-    "severity_thresholds": {
-        "check_timeout": Severity.LOW,
-        "check_shell": Severity.LOW,
-        "check_deprecated": Severity.MEDIUM,
-        "check_runs_on": Severity.MEDIUM,
-        "check_workflow_name": Severity.LOW,
-        "check_continue_on_error": Severity.MEDIUM,
-        "check_tokens": Severity.HIGH,
-        "check_inline_bash": Severity.LOW,
-        "check_reusable_inputs": Severity.MEDIUM,
-        "check_ppe_vulnerabilities": Severity.CRITICAL,
-        "check_command_injection": Severity.HIGH,
-        "check_env_injection": Severity.HIGH,
-    },
-    "auto_fix": {
-        "enabled": True,
-        "rules": {
-            "check_timeout": True,
-            "check_shell": True,
-            "check_deprecated": True,
-            "check_workflow_name": True,
-            "check_runs_on": False,  # Unsafe to auto-fix runner settings
-            "check_continue_on_error": False,  # Unsafe to auto-fix
-            "check_tokens": False,  # Unsafe to auto-fix tokens
-            "check_inline_bash": True,
-            "check_reusable_inputs": False,  # Requires understanding of workflow structure
-            "check_ppe_vulnerabilities": False,  # Too complex for auto-fix
-            "check_command_injection": False,  # Too complex for auto-fix
-            "check_env_injection": False,  # Too complex for auto-fix
-        },
-    },
-    "default_timeout_minutes": 15,
-    "default_action_versions": {
-        "actions/checkout@v1": "actions/checkout@v3",
-        "actions/checkout@v2": "actions/checkout@v3",
-        "actions/setup-python@v1": "actions/setup-python@v4",
-        "actions/setup-python@v2": "actions/setup-python@v4",
-        "actions/setup-node@v1": "actions/setup-node@v3",
-        "actions/setup-node@v2": "actions/setup-node@v3",
-        "actions/cache@v1": "actions/cache@v3",
-        "actions/cache@v2": "actions/cache@v3",
-    },
-    "report": {
-        "include_remediation": True,
-        "show_context": True,
-        "color_output": True,
-        "verbose": False,
-        "summary": True,
-    },
+
+def _registry() -> Any:
+    """Import the rule registry lazily.
+
+    ``ghast.rules`` imports ``ghast.core`` for Finding, so importing it at
+    module scope here would be circular.
+    """
+    from ..rules import registry
+
+    return registry
+
+
+def build_default_config() -> Dict[str, Any]:
+    """Build the default configuration from the rule registry."""
+    return cast(Dict[str, Any], _registry().build_default_config())
+
+
+def __getattr__(name: str) -> Any:
+    """Expose DEFAULT_CONFIG without importing the registry at module scope."""
+    if name == "DEFAULT_CONFIG":
+        return build_default_config()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _report_warnings(warnings: List[str], source: str) -> None:
+    """Surface config warnings on stderr.
+
+    A key that loads but does nothing is the failure mode this module exists to
+    remove, so it must not be silent.
+    """
+    for warning in warnings:
+        print(f"warning: {source}: {warning}", file=sys.stderr)
+
+
+#: Sections that are not per-rule toggles.
+CONFIG_SECTIONS = {
+    "severity_thresholds",
+    "auto_fix",
+    "report",
+    "default_timeout_minutes",
+    "default_action_versions",
 }
 
 
@@ -197,45 +176,111 @@ def _validate_defaults(config: Dict[str, Any]) -> None:
             raise ConfigurationError("'default_action_versions' must be a dictionary")
 
 
-def validate_config(config: Dict[str, Any]) -> None:
-    """Validate configuration structure and values"""
+def validate_config(config: Dict[str, Any]) -> List[str]:
+    """Validate configuration structure and values.
 
-    allowed_sections = {
-        "severity_thresholds",
-        "auto_fix",
-        "report",
-        "default_timeout_minutes",
-        "default_action_versions",
-    }
+    Args:
+        config: The user-supplied configuration.
 
-    allowed_keys = set(DEFAULT_CONFIG.keys()) | allowed_sections
+    Returns:
+        Human-readable warnings for keys that load but do not do anything,
+        so a typo or a retired option is visible rather than silent.
 
-    # Check for unknown top-level keys in the provided config
+    Raises:
+        ConfigurationError: If a key names no known rule or a value is invalid.
+    """
+    registry = _registry()
+    rule_ids = set(registry.all_rule_ids())
+    retired = registry.RETIRED_CONFIG_KEYS
+    warnings: List[str] = []
+
+    suggestable = sorted(rule_ids | CONFIG_SECTIONS)
+
     for key in config.keys():
-        if key not in allowed_keys:
-            suggestions = difflib.get_close_matches(key, sorted(allowed_keys), n=3, cutoff=0.5)
+        if key in CONFIG_SECTIONS:
+            continue
+
+        if key in retired:
+            warnings.append(
+                f"Configuration option '{key}' refers to a rule that does not exist "
+                "and has no effect. It can be removed."
+            )
+            continue
+
+        rule_id = registry.canonical_rule_id(key, rule_ids)
+
+        if rule_id is None:
+            suggestions = difflib.get_close_matches(key, suggestable, n=3, cutoff=0.5)
 
             message = f"Unknown configuration option '{key}'."
             if suggestions:
                 message += f" Did you mean: {', '.join(suggestions)}?"
-            message += " See examples/ghast.yml for supported options."
+            message += " Run 'ghast rules' to list every rule id."
 
             raise ConfigurationError(message)
 
-    for rule_key in DEFAULT_CONFIG.keys():
-        if (
-            rule_key != "severity_thresholds"
-            and rule_key != "auto_fix"
-            and rule_key != "report"
-            and rule_key != "default_timeout_minutes"
-            and rule_key != "default_action_versions"
-        ):
-            if rule_key in config and not isinstance(config[rule_key], bool):
-                raise ConfigurationError(f"Rule '{rule_key}' must be a boolean (true/false)")
+        if rule_id != key:
+            warnings.append(
+                f"Configuration option '{key}' is a legacy name for rule '{rule_id}'. "
+                f"Rename it to '{rule_id}'."
+            )
+
+        if not isinstance(config[key], bool):
+            raise ConfigurationError(f"Rule '{key}' must be a boolean (true/false)")
+
+    warnings.extend(_validate_rule_section(config, "severity_thresholds", rule_ids, retired))
+    warnings.extend(
+        _validate_rule_section(config.get("auto_fix", {}), "rules", rule_ids, retired, "auto_fix.")
+    )
 
     _validate_severity_thresholds(config)
     _validate_auto_fix(config)
     _validate_defaults(config)
+
+    return warnings
+
+
+def _validate_rule_section(
+    container: Any,
+    section: str,
+    rule_ids: set,
+    retired: set,
+    prefix: str = "",
+) -> List[str]:
+    """Check the rule names used inside a nested config section."""
+    if not isinstance(container, dict):
+        return []
+
+    values = container.get(section)
+    if not isinstance(values, dict):
+        return []
+
+    registry = _registry()
+    warnings: List[str] = []
+
+    for key in values:
+        if key in retired:
+            warnings.append(
+                f"'{prefix}{section}.{key}' refers to a rule that does not exist "
+                "and has no effect."
+            )
+            continue
+
+        rule_id = registry.canonical_rule_id(key, rule_ids)
+
+        if rule_id is None:
+            raise ConfigurationError(
+                f"Unknown rule '{key}' in '{prefix}{section}'. "
+                "Run 'ghast rules' to list every rule id."
+            )
+
+        if rule_id != key:
+            warnings.append(
+                f"'{prefix}{section}.{key}' is a legacy name for rule '{rule_id}'. "
+                f"Rename it to '{rule_id}'."
+            )
+
+    return warnings
 
 
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
@@ -251,7 +296,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     Raises:
         ConfigurationError: If configuration file is invalid
     """
-    config = copy.deepcopy(DEFAULT_CONFIG)
+    config = build_default_config()
 
     if config_path:
         if not os.path.exists(config_path):
@@ -263,7 +308,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
 
             if user_config:
 
-                validate_config(user_config)
+                _report_warnings(validate_config(user_config), config_path)
                 config = merge_configs(config, user_config)
         except yaml.YAMLError as e:
             raise ConfigurationError(f"Error parsing YAML configuration: {e}")
@@ -289,7 +334,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
                     continue
 
                 try:
-                    validate_config(user_config)
+                    _report_warnings(validate_config(user_config), path)
                 except ConfigurationError:
                     raise
                 except Exception as e:
@@ -340,7 +385,9 @@ def generate_default_config(output_path: Optional[str] = None) -> str:
     """
     default_config_yaml = cast(
         str,
-        yaml.dump(_serialize_enums(DEFAULT_CONFIG), default_flow_style=False, sort_keys=False),
+        yaml.dump(
+            _serialize_enums(build_default_config()), default_flow_style=False, sort_keys=False
+        ),
     )
 
     if output_path:
@@ -368,9 +415,22 @@ def disable_rules(config: Dict[str, Any], rules: List[str]) -> Dict[str, Any]:
         Updated configuration dictionary
     """
     updated_config = config.copy()
+    registry = _registry()
+    rule_ids = set(registry.all_rule_ids())
 
     for rule in rules:
-        if rule in updated_config:
-            updated_config[rule] = False
+        # Previously this only disabled keys already present in the config, so
+        # disabling a rule the caller had not already named did nothing at all.
+        # Unresolvable names are left out; callers validate them up front.
+        rule_id = registry.canonical_rule_id(rule, rule_ids)
+        if rule_id is not None:
+            updated_config[rule_id] = False
 
     return updated_config
+
+
+def unknown_rule_names(rules: List[str]) -> List[str]:
+    """Return the names in ``rules`` that do not resolve to a known rule."""
+    registry = _registry()
+    rule_ids = set(registry.all_rule_ids())
+    return [rule for rule in rules if registry.canonical_rule_id(rule, rule_ids) is None]

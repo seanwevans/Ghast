@@ -67,7 +67,7 @@ def test_load_config_autodiscovery_skips_unreadable(monkeypatch, tmp_path):
     monkeypatch.setattr(config_module, "get_config_paths", lambda: [str(a_dir)])
     cfg = load_config()
     # Falls back to defaults.
-    assert cfg["check_timeout"] is True
+    assert cfg["timeout"] is True
 
 
 def test_load_config_autodiscovery_skips_empty(monkeypatch, tmp_path):
@@ -75,7 +75,7 @@ def test_load_config_autodiscovery_skips_empty(monkeypatch, tmp_path):
     empty.write_text("")
     monkeypatch.setattr(config_module, "get_config_paths", lambda: [str(empty)])
     cfg = load_config()
-    assert cfg["check_timeout"] is True
+    assert cfg["timeout"] is True
 
 
 def test_load_config_autodiscovery_invalid_raises(monkeypatch, tmp_path):

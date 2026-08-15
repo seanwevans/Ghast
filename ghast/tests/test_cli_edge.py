@@ -12,7 +12,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from ghast.cli import _prepare_scan, cli
+from ghast.cli import EXIT_ERROR, _prepare_scan, cli
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ def test_scan_invalid_config_file(cli_runner, mock_repo, tmp_path):
     bad_config = tmp_path / "bad.yml"
     bad_config.write_text("unknown_option: true\n")
     result = cli_runner.invoke(cli, ["scan", mock_repo, "--config", str(bad_config)])
-    assert result.exit_code == 1
+    assert result.exit_code == EXIT_ERROR
     assert "Error loading config file" in result.output
 
 
@@ -80,19 +80,19 @@ def test_prepare_scan_none_config_with_disable(monkeypatch, mock_repo, tmp_path)
         severity_threshold="LOW",
         disable=("timeout",),
     )
-    assert config_data == {"check_timeout": False}
+    assert config_data == {"timeout": False}
 
 
 def test_fix_invalid_config_file(cli_runner, mock_repo, tmp_path):
     bad_config = tmp_path / "bad.yml"
     bad_config.write_text("unknown_option: true\n")
     result = cli_runner.invoke(cli, ["fix", mock_repo, "--config", str(bad_config)])
-    assert result.exit_code == 1
+    assert result.exit_code == EXIT_ERROR
     assert "Error loading config file" in result.output
 
 
 def test_fix_repository_mode(cli_runner, mock_repo):
-    result = cli_runner.invoke(cli, ["fix", mock_repo, "--disable", "tokens"])
+    result = cli_runner.invoke(cli, ["fix", mock_repo, "--disable", "token_security"])
     assert result.exit_code == 0
     assert "Scanning repository" in result.output
     assert "Fix Summary" in result.output
@@ -102,7 +102,7 @@ def test_fix_repository_no_workflows(cli_runner, tmp_path):
     empty = tmp_path / "empty_repo"
     empty.mkdir()
     result = cli_runner.invoke(cli, ["fix", str(empty)])
-    assert result.exit_code == 1
+    assert result.exit_code == EXIT_ERROR
     assert "No workflows found" in result.output
 
 
@@ -145,14 +145,14 @@ def test_fix_dry_run_unfixable(cli_runner, insecure_workflow_file):
 def test_config_generate_stdout(cli_runner):
     result = cli_runner.invoke(cli, ["config", "--generate"])
     assert result.exit_code == 0
-    assert "check_timeout" in result.output
+    assert "timeout" in result.output
 
 
 def test_config_invalid(cli_runner, tmp_path):
     bad_config = tmp_path / "bad.yml"
     bad_config.write_text("unknown_option: true\n")
     result = cli_runner.invoke(cli, ["config", "--config", str(bad_config)])
-    assert result.exit_code == 1
+    assert result.exit_code == EXIT_ERROR
     assert "Config validation failed" in result.output
 
 
@@ -160,7 +160,7 @@ def test_analyze_non_workflow(cli_runner, tmp_path):
     not_a_workflow = tmp_path / "plain.yml"
     not_a_workflow.write_text("hello: world\n")
     result = cli_runner.invoke(cli, ["analyze", str(not_a_workflow)])
-    assert result.exit_code == 1
+    assert result.exit_code == EXIT_ERROR
     assert "Error analyzing file" in result.output
 
 
@@ -170,3 +170,26 @@ def test_analyze_clean_workflow(cli_runner, tmp_path):
     result = cli_runner.invoke(cli, ["analyze", str(clean)])
     assert result.exit_code == 0
     assert "No issues found" in result.output
+
+
+def test_scan_rejects_unknown_disable_rule(cli_runner, mock_repo):
+    """A typo in --disable must fail loudly, not silently leave the rule on."""
+    result = cli_runner.invoke(cli, ["scan", mock_repo, "--disable", "tokenz"])
+
+    assert result.exit_code != 0
+    assert "Unknown rule(s) passed to --disable: tokenz" in result.output
+    assert "token_security" in result.output
+
+
+def test_fix_rejects_unknown_disable_rule(cli_runner, mock_repo):
+    result = cli_runner.invoke(cli, ["fix", mock_repo, "--disable", "nope"])
+
+    assert result.exit_code != 0
+    assert "Unknown rule(s) passed to --disable: nope" in result.output
+
+
+def test_scan_accepts_legacy_disable_alias(cli_runner, mock_repo):
+    """`--disable check_tokens` should keep working and now actually apply."""
+    result = cli_runner.invoke(cli, ["scan", mock_repo, "--disable", "check_tokens"])
+
+    assert "Unknown rule" not in result.output

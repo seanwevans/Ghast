@@ -9,22 +9,7 @@ from typing import Any, Dict, List, Optional
 from ..core import SEVERITY_LEVELS, Finding
 from ..core.scanner import Severity, normalize_severity
 from .base import Rule
-from .best_practices import (
-    ContinueOnErrorRule,
-    DeprecatedActionsRule,
-    ReusableWorkflowRule,
-    ShellSpecificationRule,
-    TimeoutRule,
-    WorkflowNameRule,
-)
-from .security import (
-    ActionPinningRule,
-    CommandInjectionRule,
-    EnvironmentInjectionRule,
-    PermissionsRule,
-    PoisonedPipelineExecutionRule,
-    TokenSecurityRule,
-)
+from .registry import build_default_rules, canonical_rule_id
 
 
 class RuleEngine:
@@ -48,55 +33,47 @@ class RuleEngine:
 
     def _register_default_rules(self) -> None:
         """Register the default set of rules"""
+        self.rules.extend(build_default_rules())
 
-        self.rules.append(PermissionsRule())
-        self.rules.append(PoisonedPipelineExecutionRule())
-        self.rules.append(CommandInjectionRule())
-        self.rules.append(EnvironmentInjectionRule())
-        self.rules.append(TokenSecurityRule())
-        self.rules.append(ActionPinningRule())
+    def _resolve_config_keys(self, section: Dict[str, Any]) -> Dict[str, Any]:
+        """Map a config section's keys onto rule ids.
 
-        self.rules.append(TimeoutRule())
-        self.rules.append(ShellSpecificationRule())
-        self.rules.append(WorkflowNameRule())
-        self.rules.append(DeprecatedActionsRule())
-        self.rules.append(ContinueOnErrorRule())
-        self.rules.append(ReusableWorkflowRule())
+        The previous implementation guessed at names by stripping ``_rule`` and
+        ``_actions`` suffixes and trying ``check_`` prefixes. That resolved
+        five of twelve rules; the rest silently ignored their config. Keys are
+        now resolved against the registry, which knows every id and alias.
+
+        Args:
+            section: A mapping whose keys name rules.
+
+        Returns:
+            The same values re-keyed by rule id, dropping keys that name no
+            registered rule.
+        """
+        known_ids = {rule.rule_id for rule in self.rules}
+        resolved: Dict[str, Any] = {}
+
+        for key, value in section.items():
+            rule_id = canonical_rule_id(key, known_ids)
+            if rule_id is not None:
+                resolved[rule_id] = value
+
+        return resolved
 
     def _apply_config(self) -> None:
         """Apply configuration to rules"""
         if not self.config:
             return
 
+        enabled_by_id = self._resolve_config_keys(self.config)
+        severities_by_id = self._resolve_config_keys(self.config.get("severity_thresholds", {}))
+
         for rule in self.rules:
-            rule_id = rule.rule_id
-            rule_id_with_check = f"check_{rule_id}"
-            short_rule_id = rule_id.replace("_rule", "").replace("_actions", "")
-            short_with_check = f"check_{short_rule_id}"
+            if rule.rule_id in enabled_by_id:
+                rule.enabled = bool(enabled_by_id[rule.rule_id])
 
-            if rule_id in self.config:
-                rule.enabled = bool(self.config[rule_id])
-            elif rule_id_with_check in self.config:
-                rule.enabled = bool(self.config[rule_id_with_check])
-            elif short_rule_id in self.config:
-                rule.enabled = bool(self.config[short_rule_id])
-            elif short_with_check in self.config:
-                rule.enabled = bool(self.config[short_with_check])
-
-            severity_thresholds = self.config.get("severity_thresholds", {})
-            if rule_id in severity_thresholds:
-                value = severity_thresholds[rule_id]
-            elif rule_id_with_check in severity_thresholds:
-                value = severity_thresholds[rule_id_with_check]
-            elif short_rule_id in severity_thresholds:
-                value = severity_thresholds[short_rule_id]
-            elif short_with_check in severity_thresholds:
-                value = severity_thresholds[short_with_check]
-            else:
-                value = None
-
-            if value is not None:
-                rule.severity = normalize_severity(value)
+            if rule.rule_id in severities_by_id:
+                rule.severity = normalize_severity(severities_by_id[rule.rule_id])
 
     def register_rule(self, rule: Rule) -> None:
         """
@@ -264,6 +241,8 @@ class RuleEngine:
                 findings_by_rule[finding.rule_id] = []
             findings_by_rule[finding.rule_id].append(finding)
 
+        auto_fix_by_id = self._resolve_config_keys(self.config.get("auto_fix", {}).get("rules", {}))
+
         for rule_id, rule_findings in findings_by_rule.items():
             rule = self.get_rule_by_id(rule_id)
 
@@ -271,7 +250,7 @@ class RuleEngine:
                 fixes_skipped += len(rule_findings)
                 continue
 
-            auto_fix = self.config.get("auto_fix", {}).get("rules", {}).get(rule_id, True)
+            auto_fix = auto_fix_by_id.get(rule_id, True)
             if not auto_fix:
                 fixes_skipped += len(rule_findings)
                 continue
