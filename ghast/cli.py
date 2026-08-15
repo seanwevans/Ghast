@@ -31,6 +31,21 @@ from .utils.version import __version__
 
 OUTPUT_FORMATS = ["text", "json", "sarif", "html"]
 
+#: Findings at or above the severity threshold were reported.
+EXIT_FINDINGS = 1
+#: ghast could not complete the run: bad config, no workflows, unreadable file.
+EXIT_ERROR = 2
+
+
+class GhastError(click.ClickException):
+    """A failure to run, as distinct from a successful run that found issues.
+
+    Both used to raise plain ``ClickException`` and exit 1, so a CI job could
+    not tell "your workflows have problems" from "the scanner broke".
+    """
+
+    exit_code = EXIT_ERROR
+
 
 def _reject_unknown_rules(disable: Tuple[str, ...]) -> None:
     """Fail loudly when --disable names a rule that does not exist.
@@ -82,11 +97,11 @@ def _prepare_scan(
     if config:
         config_path = Path(config)
         if not config_path.exists():
-            raise click.ClickException(f"Error loading config file: {config} not found")
+            raise GhastError(f"Error loading config file: {config} not found")
         try:
             config_data = load_config(config)
         except Exception as e:
-            raise click.ClickException(f"Error loading config file: {e}")
+            raise GhastError(f"Error loading config file: {e}")
 
     else:
         config_data = copy.deepcopy(config_default) if config_default is not None else {}
@@ -125,10 +140,10 @@ def _prepare_scan(
             click.echo(f"Scanning repository: {path}")
         workflow_dir = path / ".github" / "workflows"
         if not workflow_dir.exists():
-            raise click.ClickException(f"No workflows found at {workflow_dir}")
+            raise GhastError(f"No workflows found at {workflow_dir}")
         files_to_scan = list(workflow_dir.glob("*.y*ml"))
         if not files_to_scan:
-            raise click.ClickException(f"No workflows found at {workflow_dir}")
+            raise GhastError(f"No workflows found at {workflow_dir}")
 
         if echo and show_file_count:
             click.echo(f"Found {len(files_to_scan)} workflow file(s) to scan")
@@ -238,7 +253,14 @@ def scan(
     severe_findings = sum(sev_counts.get(lvl, 0) for lvl in SEVERITY_LEVELS[threshold_index:])
 
     if severe_findings > 0:
-        raise click.ClickException("Severe findings detected")
+        # A successful scan that found problems is not a tool error. Reporting
+        # it as `Error: Severe findings detected` made a normal, expected
+        # outcome look like a crash, and shared exit 1 with real failures.
+        click.echo(
+            f"Found {severe_findings} finding(s) at or above {normalized_threshold}.",
+            err=True,
+        )
+        raise SystemExit(EXIT_FINDINGS)
 
 
 @cli.command()
@@ -279,7 +301,7 @@ def fix(
         try:
             config_data = load_config(config)
         except Exception as e:
-            raise click.ClickException(f"Error loading config file: {e}")
+            raise GhastError(f"Error loading config file: {e}")
     else:
         config_data = {}
 
@@ -317,7 +339,7 @@ def fix(
         click.echo(f"Scanning repository: {path}")
         workflow_dir = path / ".github" / "workflows"
         if not workflow_dir.exists():
-            raise click.ClickException(f"No workflows found at {workflow_dir}")
+            raise GhastError(f"No workflows found at {workflow_dir}")
 
         findings, stats = scan_repository(
             repo_path=repo_path,
@@ -403,7 +425,7 @@ def config(config: Optional[str], generate: bool, output: Optional[str]) -> None
                 f"[{rule_info['severity']}]"
             )
     except Exception as e:
-        raise click.ClickException(f"❌ Config validation failed: {e}")
+        raise GhastError(f"❌ Config validation failed: {e}")
 
 
 @cli.command()
@@ -461,7 +483,7 @@ def analyze(file_path: str) -> None:
         workflow = load_yaml_file_with_positions(file_path)
 
         if not is_github_actions_workflow(workflow):
-            raise click.ClickException(
+            raise GhastError(
                 f"⚠️ The file {file_path} does not appear to be a GitHub Actions workflow"
             )
 
@@ -495,7 +517,7 @@ def analyze(file_path: str) -> None:
                 click.echo("")
 
     except Exception as e:
-        raise click.ClickException(f"Error analyzing file: {e}")
+        raise GhastError(f"Error analyzing file: {e}")
 
 
 @cli.command()

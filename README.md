@@ -156,6 +156,30 @@ ghast scan /path/to/repo --output-file results.txt
 ghast scan /path/to/repo --verbose
 ```
 
+### Exit codes
+
+`ghast scan` distinguishes "your workflows have problems" from "ghast could
+not run", so it can be used as a required CI check:
+
+| Code | Meaning |
+|------|---------|
+| `0` | No findings at or above the severity threshold |
+| `1` | Findings at or above the severity threshold |
+| `2` | ghast could not complete the run — bad config, no workflows found, unreadable file, invalid arguments |
+
+The findings notice is written to stderr, so `--output json` and
+`--output sarif` write clean, parseable documents to stdout:
+
+```bash
+ghast scan . --output json | jq '.findings[] | select(.severity == "CRITICAL")'
+```
+
+To fail a build only on serious issues while still printing everything:
+
+```bash
+ghast scan . --severity-threshold HIGH
+```
+
 ### Fixing Issues
 
 ```bash
