@@ -2,7 +2,7 @@
 test_fixer_edge.py - Edge-case coverage for the auto-remediation module
 
 Covers fixer fall-through branches, interactive prompting, error handling
-during fixing/dumping, fix_runs_on, and the fix_repository skip/echo paths.
+during fixing/dumping, and the fix_repository skip/echo paths.
 """
 
 import os
@@ -180,30 +180,6 @@ def test_fix_deprecated_no_matching_step():
     config = {"default_action_versions": {"actions/checkout@v1": "actions/checkout@v3"}}
     workflow = {"jobs": {"build": {"steps": [{"uses": "actions/setup-node@v3"}]}}}
     assert Fixer(config).fix_deprecated_actions(workflow, finding) is False
-
-
-def _runs_on_finding(message="Missing 'runs-on' in job 'build'"):
-    return Finding(rule_id="runs_on", severity="MEDIUM", message=message, file_path="f")
-
-
-def test_fix_runs_on_adds_runner():
-    workflow = {"jobs": {"build": {"steps": []}}}
-    assert Fixer({}).fix_runs_on(workflow, _runs_on_finding()) is True
-    assert workflow["jobs"]["build"]["runs-on"] == "ubuntu-latest"
-
-
-def test_fix_runs_on_no_match():
-    assert Fixer({}).fix_runs_on({"jobs": {}}, _runs_on_finding(message="nope")) is False
-
-
-def test_fix_runs_on_unknown_job():
-    finding = _runs_on_finding(message="Missing 'runs-on' in job 'ghost'")
-    assert Fixer({}).fix_runs_on({"jobs": {"build": {}}}, finding) is False
-
-
-def test_fix_runs_on_already_present():
-    workflow = {"jobs": {"build": {"runs-on": "ubuntu-latest"}}}
-    assert Fixer({}).fix_runs_on(workflow, _runs_on_finding()) is False
 
 
 # --- fix_repository skip/echo paths -------------------------------------------

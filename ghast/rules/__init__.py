@@ -5,7 +5,7 @@ This package contains the security rules and rule engine for finding and fixing
 security issues in GitHub Actions workflows.
 """
 
-from .base import Rule, WorkflowRule, JobRule, StepRule, TriggerRule, TokenRule
+from .base import Rule, WorkflowRule, JobRule, StepRule, TokenRule
 from .engine import RuleEngine, create_rule_engine
 from .security import (
     PermissionsRule,
@@ -29,7 +29,6 @@ __all__ = [
     "WorkflowRule",
     "JobRule",
     "StepRule",
-    "TriggerRule",
     "TokenRule",
     "RuleEngine",
     "create_rule_engine",

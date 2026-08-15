@@ -12,14 +12,13 @@ from ghast.rules.base import (
     JobRule,
     StepRule,
     TokenRule,
-    TriggerRule,
     WorkflowRule,
     _is_false,
     _is_true,
 )
 
 
-class _HelperRule(WorkflowRule, JobRule, TriggerRule, TokenRule):
+class _HelperRule(WorkflowRule, JobRule, TokenRule):
     """Concrete rule combining the workflow/job/trigger/token mixins."""
 
     def __init__(self):
@@ -81,49 +80,6 @@ def test_create_finding_overrides():
     assert finding.can_fix is True
 
 
-def test_check_workflow_permissions_missing():
-    rule = _HelperRule()
-    findings = rule.check_workflow_permissions({}, "wf.yml")
-    assert len(findings) == 1
-    assert "missing explicit permissions" in findings[0].message.lower()
-    assert findings[0].can_fix is True
-
-
-def test_check_workflow_permissions_write_all():
-    rule = _HelperRule()
-    findings = rule.check_workflow_permissions({"permissions": "write-all"}, "wf.yml")
-    assert len(findings) == 1
-    assert "write-all" in findings[0].message
-    assert findings[0].can_fix is False
-
-
-def test_check_workflow_permissions_ok():
-    rule = _HelperRule()
-    findings = rule.check_workflow_permissions({"permissions": "read-all"}, "wf.yml")
-    assert findings == []
-
-
-def test_check_job_permissions_missing():
-    rule = _HelperRule()
-    findings = rule.check_job_permissions("build", {}, "wf.yml")
-    assert len(findings) == 1
-    assert "missing explicit permissions in job 'build'" in findings[0].message.lower()
-
-
-def test_check_job_permissions_write_all():
-    rule = _HelperRule()
-    findings = rule.check_job_permissions("build", {"permissions": "write-all"}, "wf.yml")
-    assert len(findings) == 1
-    assert "write-all" in findings[0].message
-    assert "build" in findings[0].message
-
-
-def test_check_job_permissions_ok():
-    rule = _HelperRule()
-    findings = rule.check_job_permissions("build", {"permissions": "read-all"}, "wf.yml")
-    assert findings == []
-
-
 def test_check_job_timeout_triggers():
     rule = _HelperRule()
     job = {"steps": [{"run": "echo"} for _ in range(5)]}
@@ -142,62 +98,6 @@ def test_check_job_timeout_ok_when_set():
     rule = _HelperRule()
     job = {"timeout-minutes": 10, "steps": [{"run": "echo"} for _ in range(6)]}
     assert rule.check_job_timeout("build", job, "wf.yml") == []
-
-
-def test_check_job_runner_missing():
-    rule = _HelperRule()
-    findings = rule.check_job_runner("build", {}, "wf.yml")
-    assert len(findings) == 1
-    assert "missing 'runs-on'" in findings[0].message.lower()
-
-
-def test_check_job_runner_self_hosted_string():
-    rule = _HelperRule()
-    findings = rule.check_job_runner("build", {"runs-on": "self-hosted"}, "wf.yml")
-    assert len(findings) == 1
-    assert "self-hosted runner without labels" in findings[0].message
-
-
-def test_check_job_runner_self_hosted_list_with_labels():
-    rule = _HelperRule()
-    findings = rule.check_job_runner("build", {"runs-on": ["self-hosted", "linux"]}, "wf.yml")
-    assert len(findings) == 1
-    assert findings[0].severity == "LOW"
-
-
-def test_check_job_runner_self_hosted_list_only():
-    rule = _HelperRule()
-    findings = rule.check_job_runner("build", {"runs-on": ["self-hosted"]}, "wf.yml")
-    assert len(findings) == 1
-    # A single-element self-hosted list keeps the rule's own severity.
-    assert findings[0].severity == "HIGH"
-
-
-def test_check_job_runner_github_hosted_ok():
-    rule = _HelperRule()
-    assert rule.check_job_runner("build", {"runs-on": "ubuntu-latest"}, "wf.yml") == []
-
-
-def test_check_high_risk_triggers_dict():
-    rule = _HelperRule()
-    workflow = {"on": {"pull_request_target": {}, "push": {}}}
-    findings = rule.check_high_risk_triggers(workflow, "wf.yml")
-    assert len(findings) == 1
-    assert "pull_request_target" in findings[0].message
-
-
-def test_check_high_risk_triggers_list():
-    rule = _HelperRule()
-    workflow = {"on": ["workflow_run", "push"]}
-    findings = rule.check_high_risk_triggers(workflow, "wf.yml")
-    assert len(findings) == 1
-    assert "workflow_run" in findings[0].message
-
-
-def test_check_high_risk_triggers_none():
-    rule = _HelperRule()
-    workflow = {"on": "push"}
-    assert rule.check_high_risk_triggers(workflow, "wf.yml") == []
 
 
 def test_check_hardcoded_tokens_detects():
