@@ -63,3 +63,28 @@ def test_classifiers_do_not_claim_untested_versions(pyproject):
 
 def test_running_interpreter_satisfies_declared_floor():
     assert sys.version_info >= (3, 10)
+
+
+# --- coverage configuration ---------------------------------------------------
+
+
+def test_coverage_measures_branches(pyproject):
+    """Line coverage read 100% while 47 branches ran in one direction only.
+
+    It also reported full coverage of five rule helpers that no code path
+    could reach, because tests had been written specifically to cover them.
+    Branch coverage is the weaker claim honestly measured.
+    """
+    assert pyproject["tool"]["coverage"]["run"]["branch"] is True
+
+
+def test_coverage_floor_is_meaningful(pyproject):
+    """High enough to catch a regression, not so high it invites gaming."""
+    assert pyproject["tool"]["coverage"]["report"]["fail_under"] >= 95
+
+
+def test_coverage_excludes_unreachable_type_checking_blocks(pyproject):
+    excludes = pyproject["tool"]["coverage"]["report"]["exclude_lines"]
+
+    assert "if TYPE_CHECKING:" in excludes
+    assert "pragma: no cover" in excludes

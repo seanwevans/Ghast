@@ -97,14 +97,27 @@ python_classes = "Test*"
 
 [tool.coverage.run]
 source = ["ghast"]
+# Branch coverage, because line coverage was measuring the wrong thing. The
+# suite reported 100% lines while 47 branches had only ever been taken in one
+# direction, and five rule helpers that no code path could reach were fully
+# "covered" by tests written to satisfy the target.
+branch = true
 omit = ["ghast/tests/*"]
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 100
+# Only files with gaps, so the report is a to-do list rather than a wall.
+skip_covered = true
+# A floor, not a target. Set just under the current figure so a regression is
+# caught, while leaving the remaining partial branches — mostly loop exits and
+# defensive guards — to be closed by tests that have a reason to exist, rather
+# than by tests written to move this number.
+fail_under = 98
 exclude_lines = [
     "pragma: no cover",
     "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
 ]
 
 [tool.flake8]
