@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from ..core import Finding
 from ..utils.yaml_handler import get_position
+from .expressions import find_dangerous_serialization
 
 
 def _is_false(value: Any) -> bool:
@@ -514,13 +515,23 @@ class TokenRule(Rule):
                     )
                 )
 
-        if "toJson(secrets)" in workflow_str:
+        # Previously a case-sensitive substring test for the exact string
+        # "toJson(secrets)", so `toJSON(secrets)` — GitHub's own spelling in
+        # the docs — and `toJSON(github.event)` both went unnoticed.
+        serialization = find_dangerous_serialization(workflow_str)
+        if serialization is not None:
+            exposes = (
+                "every secret"
+                if "secrets" in serialization.lower()
+                else "the entire attacker-controlled event payload"
+            )
             findings.append(
                 self.create_finding(
-                    message="Dangerous 'toJson(secrets)' usage exposes all secrets",
+                    message=f"Dangerous '{serialization}' usage exposes {exposes}",
                     file_path=file_path,
                     remediation=(
-                        "Never use toJson(secrets), reference individual secrets explicitly"
+                        "Reference the individual values you need explicitly rather "
+                        "than serializing a whole context"
                     ),
                     can_fix=False,
                     severity="CRITICAL",

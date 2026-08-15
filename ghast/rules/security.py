@@ -10,6 +10,12 @@ from typing import Any, Dict, List
 from ..core import Finding
 from ..utils.yaml_handler import get_position
 from .base import Rule, StepRule, TokenRule, WorkflowRule, _is_false
+from .expressions import (
+    CODE_EXECUTING_ACTION_INPUTS,
+    find_dangerous_serialization,
+    find_remote_script_execution,
+    find_untrusted,
+)
 
 
 class PermissionsRule(WorkflowRule):
@@ -130,13 +136,26 @@ class PoisonedPipelineExecutionRule(Rule):
             remediation="Use pull_request trigger instead of pull_request_target, or if pull_request_target is required, do not check out untrusted code",
             category="security",
         )
-        self.high_risk_triggers = {"pull_request_target", "workflow_run"}
+        # Triggers that run against the base repository with a write-scoped
+        # token and access to secrets, while carrying attacker-supplied data.
+        # Previously only the first two were recognised, so a workflow that
+        # checked out a fork from an `issue_comment` handler was missed.
+        self.high_risk_triggers = {
+            "pull_request_target",
+            "workflow_run",
+            "issue_comment",
+            "pull_request_review",
+            "pull_request_review_comment",
+            "discussion_comment",
+        }
         self.dangerous_refs = [
             "github.event.pull_request",
             "github.head_ref",
             "github.event.issue",
             "github.event.comment",
             "github.event.review",
+            "github.event.workflow_run",
+            "github.event.discussion",
         ]
 
     def check(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
@@ -183,38 +202,52 @@ class PoisonedPipelineExecutionRule(Rule):
                                 break
 
             if checkout_found and untrusted_ref_used:
+                sorted_triggers = sorted(high_risk_triggers_used)
+                triggers_used = "{} trigger{}".format(
+                    ", ".join(sorted_triggers),
+                    "s" if len(sorted_triggers) > 1 else "",
+                )
+
+                # One finding per job, not one per step. The previous version
+                # emitted a near-identical HIGH for every `run:` step in the
+                # job — six duplicates for a single root cause — which buried
+                # the CRITICAL that actually explains the problem. The affected
+                # steps are carried in context instead.
+                executing_steps = [
+                    step_idx + 1
+                    for step_idx, step in enumerate(steps)
+                    if isinstance(step, dict) and "run" in step
+                ]
+                env_modifying_steps = [
+                    step_idx + 1
+                    for step_idx, step in enumerate(steps)
+                    if isinstance(step, dict)
+                    and ("GITHUB_ENV" in str(step) or "GITHUB_PATH" in str(step))
+                ]
+
+                detail = ""
+                if executing_steps:
+                    joined = ", ".join(str(idx) for idx in executing_steps)
+                    detail = f"; untrusted code then runs in step(s) {joined}"
+
                 findings.append(
                     self.create_finding(
-                        message=f"Poisoned Pipeline Execution vulnerability: job '{job_id}' uses {', '.join(high_risk_triggers_used)} trigger with checkout of untrusted code",
+                        message=(
+                            f"Poisoned Pipeline Execution vulnerability: job "
+                            f"'{job_id}' uses {triggers_used} with checkout "
+                            f"of untrusted code{detail}"
+                        ),
                         file_path=file_path,
+                        line_number=get_position(job)[0],
+                        column=get_position(job)[1],
                         context={
-                            "triggers": list(high_risk_triggers_used),
+                            "triggers": sorted(high_risk_triggers_used),
                             "ref": str(untrusted_ref_used),
+                            "executing_steps": executing_steps,
+                            "env_modifying_steps": env_modifying_steps,
                         },
                     )
                 )
-
-                for step_idx, step in enumerate(steps):
-                    if not isinstance(step, dict):
-                        continue
-
-                    if "run" in step:
-                        findings.append(
-                            self.create_finding(
-                                message=f"Job '{job_id}' executes scripts in step {step_idx+1} after checking out untrusted code in a high-privilege context",
-                                file_path=file_path,
-                                severity="HIGH",
-                            )
-                        )
-
-                    if "GITHUB_ENV" in str(step) or "GITHUB_PATH" in str(step):
-                        findings.append(
-                            self.create_finding(
-                                message=f"Job '{job_id}' modifies environment variables or path in step {step_idx+1} after checking out untrusted code in a high-privilege context",
-                                file_path=file_path,
-                                severity="HIGH",
-                            )
-                        )
 
             if "secrets" in job and job["secrets"] == "inherit" and high_risk_triggers_used:
                 findings.append(
@@ -245,50 +278,116 @@ class CommandInjectionRule(StepRule):
         # command text. As a result no matches were found. These expressions
         # operate directly on the command string to properly flag injection
         # risks.
-        self.dangerous_patterns = [
-            (
-                r"\${{.*github\.event\.(issue|comment|review).*}}",
-                "Untrusted event data in shell command",
-            ),
-            (
-                r"\${{.*github\.head_ref.*}}",
-                "Untrusted head_ref in shell command",
-            ),
-            (
-                r"\${{.*github\.event\.pull_request\.title.*}}",
-                "Untrusted PR title in shell command",
-            ),
-            (
-                r"\${{.*github\.event\.pull_request\.body.*}}",
-                "Untrusted PR body in shell command",
-            ),
-        ]
 
     def check(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for command injection"""
-        findings = []
+        findings: List[Finding] = []
 
         jobs = workflow.get("jobs", {})
         for job_id, job in jobs.items():
             if job_id in ("__line__", "__column__") or not isinstance(job, dict):
                 continue
-            steps = job.get("steps", [])
 
-            for step_idx, step in enumerate(steps):
+            for step_idx, step in enumerate(job.get("steps", [])):
                 if not isinstance(step, dict):
                     continue
 
-                if "run" in step and isinstance(step["run"], str):
-                    run_command = step["run"]
+                findings.extend(self._check_step(job_id, step_idx, step, file_path))
 
-                    for pattern, desc in self.dangerous_patterns:
-                        if re.search(pattern, run_command, re.DOTALL):
-                            findings.append(
-                                self.create_finding(
-                                    message=f"{desc} in job '{job_id}' step {step_idx+1}",
-                                    file_path=file_path,
-                                )
-                            )
+        return findings
+
+    def _check_step(
+        self, job_id: str, step_idx: int, step: Dict[str, Any], file_path: str
+    ) -> List[Finding]:
+        """Check one step for untrusted interpolation and remote execution."""
+        findings: List[Finding] = []
+        line, column = get_position(step)
+        where = f"job '{job_id}' step {step_idx + 1}"
+
+        run_command = step.get("run")
+        if isinstance(run_command, str):
+            # `${{ }}` is substituted into the script before the shell sees it,
+            # so untrusted values here are executed, not passed as data.
+            for use in find_untrusted(run_command):
+                findings.append(
+                    self.create_finding(
+                        message=(
+                            f"Untrusted {use.description} interpolated into a shell "
+                            f"command in {where}: ${{{{ {use.expression} }}}}"
+                        ),
+                        file_path=file_path,
+                        line_number=line,
+                        column=column,
+                        remediation=(
+                            "Pass the value through an environment variable and "
+                            "reference it quoted, e.g. env: TITLE: "
+                            f'${{{{ {use.expression} }}}} then "$TITLE"'
+                        ),
+                    )
+                )
+
+            command = find_remote_script_execution(run_command)
+            if command is not None:
+                findings.append(
+                    self.create_finding(
+                        message=(f"Remote script piped into a shell in {where}: {command}"),
+                        file_path=file_path,
+                        line_number=line,
+                        column=column,
+                        severity="MEDIUM",
+                        remediation=("Download to a file, verify its checksum, then execute it"),
+                    )
+                )
+
+        findings.extend(self._check_action_inputs(job_id, step_idx, step, file_path))
+
+        return findings
+
+    def _check_action_inputs(
+        self, job_id: str, step_idx: int, step: Dict[str, Any], file_path: str
+    ) -> List[Finding]:
+        """Flag untrusted data passed to action inputs that execute as code.
+
+        Deliberately narrow: putting untrusted data into a plain `env:` or a
+        non-executing `with:` input is the *recommended* mitigation, so flagging
+        those would penalise correct workflows.
+        """
+        findings: List[Finding] = []
+
+        uses = step.get("uses")
+        inputs = step.get("with")
+        if not isinstance(uses, str) or not isinstance(inputs, dict):
+            return findings
+
+        action = uses.split("@", 1)[0]
+        code_inputs = CODE_EXECUTING_ACTION_INPUTS.get(action)
+        if not code_inputs:
+            return findings
+
+        line, column = get_position(step)
+
+        for input_name in code_inputs:
+            value = inputs.get(input_name)
+            if not isinstance(value, str):
+                continue
+
+            for use in find_untrusted(value):
+                findings.append(
+                    self.create_finding(
+                        message=(
+                            f"Untrusted {use.description} interpolated into "
+                            f"'{action}' input '{input_name}' in job '{job_id}' "
+                            f"step {step_idx + 1}: ${{{{ {use.expression} }}}}"
+                        ),
+                        file_path=file_path,
+                        line_number=line,
+                        column=column,
+                        remediation=(
+                            "Pass the value in through env: and read it from "
+                            "process.env inside the script"
+                        ),
+                    )
+                )
 
         return findings
 
@@ -325,27 +424,9 @@ class EnvironmentInjectionRule(StepRule):
                     continue
 
                 if "uses" in step and step["uses"].startswith("actions/checkout"):
-                    if (
-                        "with" not in step
-                        or "persist-credentials" not in step["with"]
-                        or not _is_false(step["with"]["persist-credentials"])
-                    ):
-                        findings.append(
-                            self.create_finding(
-                                message=(
-                                    f"actions/checkout in job '{job_id}' step {step_idx+1} "
-                                    "does not disable credential persistence"
-                                ),
-                                file_path=file_path,
-                                line_number=get_position(step)[0],
-                                column=get_position(step)[1],
-                                remediation=(
-                                    "Add 'persist-credentials: false' to the 'with' section of actions/checkout steps"
-                                ),
-                                can_fix=True,
-                            )
-                        )
-
+                    # Credential persistence is reported by TokenSecurityRule.
+                    # Emitting it here too produced two byte-identical findings
+                    # for one checkout step.
                     checkout_step_idx = step_idx
 
             if checkout_step_idx is not None:

@@ -120,7 +120,12 @@ def test_ppe_modifies_environment_after_untrusted_checkout():
         },
     }
     findings = rule.check(workflow, "wf.yml")
-    assert any("modifies environment" in f.message.lower() for f in findings)
+
+    # Step-level detail moved from a separate finding per step into the single
+    # per-job finding's context, so one root cause reports once.
+    assert len(findings) == 1
+    assert findings[0].context["env_modifying_steps"] == [3]
+    assert findings[0].context["executing_steps"] == [3]
 
 
 def test_command_injection_skips_markers_and_non_dict_steps():

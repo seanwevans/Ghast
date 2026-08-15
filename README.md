@@ -249,11 +249,32 @@ default_action_versions:
 
 GitHub Actions workflows can introduce security risks if not properly configured:
 
-1. **Poisoned Pipeline Execution (PPE)**: Occurs when high-privilege triggers like `pull_request_target` run untrusted code with access to secrets
+1. **Poisoned Pipeline Execution (PPE)**: Occurs when high-privilege triggers run untrusted code with access to secrets. ghast treats `pull_request_target`, `workflow_run`, `issue_comment`, `pull_request_review`, `pull_request_review_comment` and `discussion_comment` as high-privilege.
 2. **Over-privileged Workflows**: Workflows with unnecessary write permissions increase attack surface
 3. **Unpinned Actions**: Non-SHA-pinned actions can change unexpectedly, introducing malicious code
-4. **Command Injection**: Untrusted inputs interpolated into shell commands can lead to code execution
-5. **Token Exposure**: Hardcoded tokens or `toJson(secrets)` usage can leak sensitive credentials
+4. **Command Injection**: `${{ }}` is substituted into a `run:` script *before* the shell sees it, so untrusted values are executed rather than passed as data
+5. **Token Exposure**: Hardcoded tokens or `toJSON(secrets)` usage can leak sensitive credentials
+
+### Untrusted expression contexts
+
+The `command_injection` rule flags attacker-controllable values interpolated
+into a `run:` block or into an action input that is executed as code (such as
+`actions/github-script`'s `script`). The tracked contexts are:
+
+`github.event.issue.title`/`.body` · `github.event.comment.body` ·
+`github.event.discussion.title`/`.body` · `github.event.discussion_comment.body` ·
+`github.event.review.body` · `github.event.review_comment.body` ·
+`github.event.pull_request.title`/`.body` ·
+`github.event.pull_request.head.ref`/`.label` ·
+`github.event.pull_request.head.repo.default_branch`/`.description`/`.homepage` ·
+`github.event.head_commit.message`/`.author.*` · `github.event.commits[*].message`/`.author.*` ·
+`github.event.workflow_run.head_branch`/`.display_title`/`.head_commit.message` ·
+`github.event.pages[*].page_name` · `github.head_ref` ·
+`github.event.inputs.*` · `inputs.*`
+
+Passing untrusted data through `env:` and referencing it as a quoted shell
+variable is GitHub's recommended mitigation, so ghast deliberately does **not**
+flag that pattern.
 
 ghast helps identify and remediate these risks before they can be exploited.
 
