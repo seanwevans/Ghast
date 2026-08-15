@@ -24,6 +24,7 @@ from .core import (
     unknown_rule_names,
 )
 from .core.scanner import normalize_severity
+from .core.suppressions import BaselineError, apply_baseline, build_baseline, load_baseline
 from .reports import generate_full_report, print_report, save_report
 from .rules import create_rule_engine
 from .utils.banner import _BANNER
@@ -63,6 +64,41 @@ def _reject_unknown_rules(disable: Tuple[str, ...]) -> None:
         f"Unknown rule(s) passed to --disable: {', '.join(unknown)}. "
         f"Valid rules: {', '.join(all_rule_ids())}"
     )
+
+
+def _apply_baseline_to_scan(
+    findings: List[Finding],
+    stats: Dict[str, Any],
+    baseline_path: str,
+    repo_path: str,
+) -> Tuple[List[Finding], Dict[str, Any]]:
+    """Drop baselined findings and recompute the statistics that describe them.
+
+    The counts in ``stats`` are produced before filtering, so they have to be
+    rebuilt or the summary would describe findings that were not reported.
+    """
+    from .core import SEVERITY_LEVELS
+
+    try:
+        fingerprints = load_baseline(baseline_path)
+    except BaselineError as error:
+        raise click.ClickException(str(error))
+
+    kept, suppressed = apply_baseline(findings, fingerprints, repo_path)
+
+    stats = dict(stats)
+    stats["total_findings"] = len(kept)
+    stats["baselined_findings"] = suppressed
+    stats["severity_counts"] = {level: 0 for level in SEVERITY_LEVELS}
+    stats["rule_counts"] = {}
+    stats["fixable_findings"] = sum(1 for finding in kept if finding.can_fix)
+
+    for finding in kept:
+        severity = normalize_severity(finding.severity)
+        stats["severity_counts"][severity] = stats["severity_counts"].get(severity, 0) + 1
+        stats["rule_counts"][finding.rule_id] = stats["rule_counts"].get(finding.rule_id, 0) + 1
+
+    return kept, stats
 
 
 def _prepare_scan(
@@ -194,6 +230,11 @@ def cli(ctx: click.Context) -> None:
     default="LOW",
     help="Minimum severity level to report",
 )
+@click.option(
+    "--baseline",
+    type=click.Path(),
+    help="Ignore findings recorded in this baseline file; report only new ones",
+)
 @click.option("--no-color", is_flag=True, help="Disable colored output")
 @click.option("--verbose", is_flag=True, help="Show detailed information for each finding")
 def scan(
@@ -204,6 +245,7 @@ def scan(
     output: str,
     output_file: Optional[str],
     severity_threshold: str,
+    baseline: Optional[str],
     no_color: bool,
     verbose: bool,
 ) -> None:
@@ -223,6 +265,17 @@ def scan(
         show_file_count=output == "text",
         echo=output == "text",
     )
+
+    if baseline:
+        findings, stats = _apply_baseline_to_scan(findings, stats, baseline, repo_path)
+        if output == "text" and stats["baselined_findings"]:
+            click.echo(f"Ignored {stats['baselined_findings']} finding(s) recorded in {baseline}")
+
+    if stats.get("suppressed_findings") and output == "text":
+        click.echo(
+            f"Ignored {stats['suppressed_findings']} finding(s) via inline "
+            "'# ghast: ignore' comments"
+        )
 
     if output_file:
         save_report(
@@ -471,6 +524,61 @@ def rules(format: str) -> None:
 
                 click.echo(f" - {rule['id']}: {enabled_text} {severity_text}")
                 click.echo(f"   {rule['description']}")
+
+
+@cli.command()
+@click.argument("repo_path", type=click.Path(exists=True))
+@click.option("--strict", is_flag=True, help="Enable strict mode (extra warnings)")
+@click.option("--config", type=click.Path(), help="Path to YAML config file for check settings")
+@click.option("--disable", multiple=True, help="Disable specific rule(s)")
+@click.option(
+    "--severity-threshold",
+    type=click.Choice(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+    default="LOW",
+    help="Minimum severity level to record",
+)
+@click.option(
+    "--output",
+    type=click.Path(),
+    default="ghast-baseline.json",
+    show_default=True,
+    help="Where to write the baseline file",
+)
+def baseline(
+    repo_path: str,
+    strict: bool,
+    config: Optional[str],
+    disable: Tuple[str, ...],
+    severity_threshold: str,
+    output: str,
+) -> None:
+    """Record current findings so future scans report only new ones
+
+    REPO_PATH: Path to the repository root or specific workflow file
+
+    Commit the generated file and pass it to `ghast scan --baseline`. A
+    repository with existing findings can then gate on regressions
+    immediately, rather than having to fix everything before it can turn
+    ghast on at all.
+    """
+    findings, _, _ = _prepare_scan(
+        repo_path,
+        strict,
+        config,
+        severity_threshold,
+        disable=disable,
+        echo=False,
+    )
+
+    document = build_baseline(findings, repo_path)
+
+    with open(output, "w", encoding="utf-8") as handle:
+        json.dump(document, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+
+    click.echo(f"Recorded {len(document['findings'])} finding(s) in {output}")
+    if findings:
+        click.echo("Commit this file, then run: ghast scan . --baseline " + output)
 
 
 @cli.command()
