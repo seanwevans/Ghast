@@ -468,6 +468,38 @@ ghast helps identify and remediate these risks before they can be exploited.
 
 ---
 
+## 📦 Releasing
+
+Releases publish to PyPI via [trusted publishing](https://docs.pypi.org/trusted-publishers/),
+so there is no long-lived API token stored in the repository. Tagging is the
+whole release process:
+
+```bash
+git tag v0.3.0
+git push origin v0.3.0
+```
+
+The tag triggers `build-and-publish`, which runs only after the test, lint,
+self-check and wheel-install jobs pass. It builds both distributions, checks
+their metadata with `twine check --strict`, and uploads them using a
+short-lived OIDC token that PyPI issues for this repository, workflow and
+environment.
+
+**One-time setup on PyPI** (Manage project → Publishing → Add a new publisher):
+
+| Field | Value |
+|-------|-------|
+| Owner | `seanwevans` |
+| Repository | `ghast` |
+| Workflow | `python-app.yml` |
+| Environment | `pypi` |
+
+Until that publisher exists, the upload step fails with an authentication
+error. The matching `pypi` environment in the repository's settings is also
+where an approval requirement or a tag restriction can be added.
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

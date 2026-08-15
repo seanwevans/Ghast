@@ -233,7 +233,16 @@ jobs:
         
     permissions:
       contents: read
+      # The only credential this job needs. PyPI exchanges this short-lived
+      # OIDC token for an upload token scoped to this repository, workflow and
+      # environment, so there is no long-lived API token to leak or rotate.
       id-token: write
+
+    # Gives the release a place to require an approval or restrict which tags
+    # may publish. Trusted publishing can be configured to demand it.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ghast
 
     steps:
     - name: Checkout repository
@@ -258,8 +267,16 @@ jobs:
         python -m build
       shell: bash
 
+    - name: Check distribution metadata
+      run: |
+        python -m pip install --upgrade twine
+        twine check --strict dist/*
+      shell: bash
+
+    # No `user`/`password`: with none supplied the action authenticates via
+    # OIDC. The previous PYPI_API_TOKEN secret was a long-lived credential
+    # with upload rights, which is the thing worth removing.
     - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@e53eb8b103ffcb59469888563dc324e3c8ba6f06 # v1.8.10
+      uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
       with:
-        user: __token__        
-        password: ${{ secrets.PYPI_API_TOKEN }}
+        print-hash: true
