@@ -52,7 +52,7 @@ def _write(tmp_path, content=WORKFLOW, name="w.yml"):
 
 def _timeout_finding(path):
     return Finding(
-        rule_id="check_timeout",
+        rule_id="timeout",
         severity="LOW",
         message="Job 'build' has 6 steps but no timeout-minutes set",
         file_path=path,
@@ -155,7 +155,7 @@ def test_no_op_run_leaves_file_byte_identical(tmp_path):
     before = open(path).read()
 
     unfixable = Finding(
-        rule_id="check_timeout",
+        rule_id="timeout",
         severity="LOW",
         message="Job 'nonexistent' has 6 steps but no timeout-minutes set",
         file_path=path,
@@ -173,7 +173,7 @@ def test_workflow_name_insert_keeps_comments(tmp_path):
     content = "# leading comment\non: [push]\n\njobs:\n  build:  # job comment\n    runs-on: x\n"
     path = _write(tmp_path, content, name="my-flow.yml")
     finding = Finding(
-        rule_id="check_workflow_name",
+        rule_id="workflow_name",
         severity="LOW",
         message="Missing workflow name (top-level 'name' field)",
         file_path=path,
@@ -261,3 +261,59 @@ def test_loader_keeps_on_as_a_string_key(tmp_path):
 
     with open(path) as handle:
         assert True in yaml.safe_load(handle), "PyYAML behaviour changed; comment above is stale"
+
+
+# --- driven by real findings, not hand-written ids ----------------------------
+
+FIXABLE_WORKFLOW = """\
+# keep me
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - run: |
+          echo a
+          echo b
+      - run: echo c
+      - run: echo d
+      - run: echo e
+"""
+
+
+def test_fix_applies_to_findings_produced_by_the_scanner(tmp_path):
+    """Drive the fixer from real findings rather than hand-built ones.
+
+    Hand-written `rule_id`s in tests drift silently when rule ids are renamed:
+    the fixer registry stops matching and every fix becomes a no-op while the
+    tests that construct their own findings keep passing until someone updates
+    the literals. Going through the scanner keeps the two in sync by
+    construction.
+    """
+    from ghast.core import WorkflowScanner
+
+    path = _write(tmp_path, FIXABLE_WORKFLOW)
+    findings = WorkflowScanner().scan_file(path)
+    assert findings
+
+    applied, _ = Fixer({}).fix_workflow_file(path, findings)
+
+    assert applied > 0, "no scanner finding matched a registered fixer"
+
+    result = open(path).read()
+    assert "# keep me" in result
+    assert "on: [push]" in result
+    assert "timeout-minutes: 15" in result
+    assert "shell: bash" in result
+
+
+def test_every_fixer_key_is_reachable_from_a_real_finding(tmp_path):
+    """Each registered fixer must correspond to a rule that actually reports."""
+    from ghast.core import WorkflowScanner
+
+    path = _write(tmp_path, FIXABLE_WORKFLOW)
+    reported = {finding.rule_id for finding in WorkflowScanner().scan_file(path)}
+
+    registry = set(Fixer({}).fixers)
+    assert registry & reported, f"no fixer in {sorted(registry)} matches any of {sorted(reported)}"
