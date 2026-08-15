@@ -420,34 +420,6 @@ class Fixer:
 
         return True
 
-    def fix_runs_on(self, workflow: Dict[str, Any], finding: Finding) -> bool:
-        """
-        Fix missing or ambiguous runs-on
-
-        Args:
-            workflow: Workflow dictionary
-            finding: Finding to fix
-
-        Returns:
-            True if fixed, False otherwise
-        """
-        jobs = workflow.get("jobs", {})
-
-        match = re.search(r"job '([^']+)'", finding.message)
-        if not match:
-            return False
-
-        job_id = match.group(1)
-
-        if job_id in jobs:
-            job = jobs[job_id]
-
-            if "runs-on" not in job:
-                job["runs-on"] = "ubuntu-latest"
-                return True
-
-        return False
-
 
 def fix_workflow_file(
     file_path: str,

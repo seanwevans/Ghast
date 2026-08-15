@@ -153,86 +153,9 @@ class WorkflowRule(Rule):
 
         return findings
 
-    def check_workflow_permissions(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
-        """
-        Check if the workflow has explicit permissions set
-
-        Args:
-            workflow: Workflow data as a dictionary
-            file_path: Path to the workflow file
-
-        Returns:
-            List of findings
-        """
-        findings = []
-
-        if "permissions" not in workflow:
-            findings.append(
-                self.create_finding(
-                    message="Missing explicit permissions at workflow level",
-                    file_path=file_path,
-                    remediation="Add 'permissions: read-all' at the top level of the workflow",
-                    can_fix=True,
-                )
-            )
-        elif workflow["permissions"] == "write-all":
-            findings.append(
-                self.create_finding(
-                    message="Overly permissive 'write-all' permissions at workflow level",
-                    file_path=file_path,
-                    remediation=(
-                        "Restrict permissions to only what's needed using "
-                        "specific permission keys"
-                    ),
-                    can_fix=False,
-                )
-            )
-
-        return findings
-
 
 class JobRule(Rule):
     """Base class for rules that check job-level issues"""
-
-    def check_job_permissions(
-        self, job_id: str, job: Dict[str, Any], file_path: str
-    ) -> List[Finding]:
-        """
-        Check if the job has explicit permissions set
-
-        Args:
-            job_id: Job identifier
-            job: Job data as a dictionary
-            file_path: Path to the workflow file
-
-        Returns:
-            List of findings
-        """
-        findings = []
-
-        if "permissions" not in job:
-            findings.append(
-                self.create_finding(
-                    message=f"Missing explicit permissions in job '{job_id}'",
-                    file_path=file_path,
-                    remediation=f"Add 'permissions: read-all' to job '{job_id}'",
-                    can_fix=True,
-                )
-            )
-        elif job["permissions"] == "write-all":
-            findings.append(
-                self.create_finding(
-                    message=f"Overly permissive 'write-all' permissions in job '{job_id}'",
-                    file_path=file_path,
-                    remediation=(
-                        "Restrict permissions to only what's needed using "
-                        "specific permission keys"
-                    ),
-                    can_fix=False,
-                )
-            )
-
-        return findings
 
     def check_job_timeout(
         self, job_id: str, job: Dict[str, Any], file_path: str, min_steps: int = 5
@@ -259,57 +182,6 @@ class JobRule(Rule):
                     file_path=file_path,
                     remediation=f"Add 'timeout-minutes: 15' to job '{job_id}'",
                     can_fix=True,
-                )
-            )
-
-        return findings
-
-    def check_job_runner(self, job_id: str, job: Dict[str, Any], file_path: str) -> List[Finding]:
-        """
-        Check if the job specifies a runner
-
-        Args:
-            job_id: Job identifier
-            job: Job data as a dictionary
-            file_path: Path to the workflow file
-
-        Returns:
-            List of findings
-        """
-        findings = []
-
-        runs_on = job.get("runs-on", "")
-
-        if not runs_on:
-            findings.append(
-                self.create_finding(
-                    message=f"Missing 'runs-on' in job '{job_id}'",
-                    file_path=file_path,
-                    remediation="Specify a runner, e.g., 'runs-on: ubuntu-latest'",
-                    can_fix=True,
-                )
-            )
-        elif runs_on == "self-hosted":
-            findings.append(
-                self.create_finding(
-                    message=f"Job '{job_id}' uses self-hosted runner without labels",
-                    file_path=file_path,
-                    remediation=(
-                        "Add specific labels to self-hosted runners for better security isolation"
-                    ),
-                    can_fix=False,
-                )
-            )
-        elif isinstance(runs_on, list) and "self-hosted" in runs_on:
-            findings.append(
-                self.create_finding(
-                    message=f"Job '{job_id}' uses self-hosted runner",
-                    file_path=file_path,
-                    remediation=(
-                        "Consider using GitHub-hosted runners for better security isolation"
-                    ),
-                    can_fix=False,
-                    severity="LOW" if len(runs_on) > 1 else self.severity,
                 )
             )
 
@@ -411,48 +283,6 @@ class StepRule(Rule):
                         can_fix=False,
                     )
                 )
-
-        return findings
-
-
-class TriggerRule(Rule):
-    """Base class for rules that check workflow trigger issues"""
-
-    def check_high_risk_triggers(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
-        """
-        Check for high-risk workflow triggers
-
-        Args:
-            workflow: Workflow data as a dictionary
-            file_path: Path to the workflow file
-
-        Returns:
-            List of findings
-        """
-        findings = []
-        high_risk_triggers = {"pull_request_target", "workflow_run"}
-
-        on_section = workflow.get("on", {})
-        triggers = set()
-
-        if isinstance(on_section, dict):
-            triggers = set(on_section.keys())
-        elif isinstance(on_section, list):
-            triggers = set(on_section)
-
-        high_risk_triggers_used = triggers.intersection(high_risk_triggers)
-        for trigger in high_risk_triggers_used:
-            findings.append(
-                self.create_finding(
-                    message=f"High-risk workflow trigger: '{trigger}'",
-                    file_path=file_path,
-                    remediation=(
-                        f"Use '{trigger}' trigger with caution. It runs with "
-                        "repository access token and secrets access."
-                    ),
-                    can_fix=False,
-                )
-            )
 
         return findings
 
