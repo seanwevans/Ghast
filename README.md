@@ -170,6 +170,13 @@ pip install -e .[test]
 pytest
 ```
 
+Coverage is measured with **branch** coverage and a floor of 98%. The floor is
+a regression guard, not a target: the remaining uncovered branches are mostly
+loop exits and defensive guards, and they should be closed by tests that have
+a reason to exist rather than by tests written to move the number. An earlier
+100% line-coverage requirement was fully satisfied while five rule helpers
+that no code path could reach sat behind tests written only to cover them.
+
 ## 🛠️ Contributing to ghast
 
 Set up the project's own pre-commit hooks to format and lint before each commit:
