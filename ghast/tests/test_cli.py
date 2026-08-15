@@ -10,7 +10,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from ghast.cli import cli
+from ghast.cli import EXIT_ERROR, cli
 
 
 @pytest.fixture
@@ -75,7 +75,7 @@ def test_cli_scan_nonexistent_repo():
         non_existent = os.path.join(temp_dir, "nonexistent")
         with pytest.raises(click.ClickException) as excinfo:
             cli.main(["scan", non_existent], standalone_mode=False)
-        assert excinfo.value.exit_code == 1
+        assert excinfo.value.exit_code == EXIT_ERROR
         assert "No workflows found" in str(excinfo.value)
 
 
@@ -87,7 +87,7 @@ def test_cli_scan_empty_repo():
 
         with pytest.raises(click.ClickException) as excinfo:
             cli.main(["scan", temp_dir], standalone_mode=False)
-        assert excinfo.value.exit_code == 1
+        assert excinfo.value.exit_code == EXIT_ERROR
         message = str(excinfo.value)
         assert "No workflows found" in message or "Found 0 workflow" in message
 
@@ -118,9 +118,7 @@ def test_cli_scan_output_formats(cli_runner, mock_repo):
 
     result = cli_runner.invoke(cli, ["scan", mock_repo, "--output", "json"])
     assert result.exit_code == 1
-    json_output = result.output.replace("Error: Severe findings detected\n", "").replace(
-        "Error: Severe findings detected", ""
-    )
+    json_output = result.stdout
     try:
         json_data = json.loads(json_output)
         assert "findings" in json_data
@@ -130,9 +128,7 @@ def test_cli_scan_output_formats(cli_runner, mock_repo):
 
     result = cli_runner.invoke(cli, ["scan", mock_repo, "--output", "sarif"])
     assert result.exit_code == 1
-    sarif_output = result.output.replace("Error: Severe findings detected\n", "").replace(
-        "Error: Severe findings detected", ""
-    )
+    sarif_output = result.stdout
     try:
         sarif_data = json.loads(sarif_output)
         assert "$schema" in sarif_data
@@ -309,5 +305,5 @@ def test_cli_with_nonexistent_config(mock_repo):
             ["scan", mock_repo, "--config", "nonexistent.yml"],
             standalone_mode=False,
         )
-    assert excinfo.value.exit_code == 1
+    assert excinfo.value.exit_code == EXIT_ERROR
     assert "Error loading config file" in str(excinfo.value)

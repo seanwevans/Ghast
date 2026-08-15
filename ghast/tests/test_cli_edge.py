@@ -12,7 +12,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from ghast.cli import _prepare_scan, cli
+from ghast.cli import EXIT_ERROR, _prepare_scan, cli
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ def test_scan_invalid_config_file(cli_runner, mock_repo, tmp_path):
     bad_config = tmp_path / "bad.yml"
     bad_config.write_text("unknown_option: true\n")
     result = cli_runner.invoke(cli, ["scan", mock_repo, "--config", str(bad_config)])
-    assert result.exit_code == 1
+    assert result.exit_code == EXIT_ERROR
     assert "Error loading config file" in result.output
 
 
@@ -87,7 +87,7 @@ def test_fix_invalid_config_file(cli_runner, mock_repo, tmp_path):
     bad_config = tmp_path / "bad.yml"
     bad_config.write_text("unknown_option: true\n")
     result = cli_runner.invoke(cli, ["fix", mock_repo, "--config", str(bad_config)])
-    assert result.exit_code == 1
+    assert result.exit_code == EXIT_ERROR
     assert "Error loading config file" in result.output
 
 
@@ -102,7 +102,7 @@ def test_fix_repository_no_workflows(cli_runner, tmp_path):
     empty = tmp_path / "empty_repo"
     empty.mkdir()
     result = cli_runner.invoke(cli, ["fix", str(empty)])
-    assert result.exit_code == 1
+    assert result.exit_code == EXIT_ERROR
     assert "No workflows found" in result.output
 
 
@@ -152,7 +152,7 @@ def test_config_invalid(cli_runner, tmp_path):
     bad_config = tmp_path / "bad.yml"
     bad_config.write_text("unknown_option: true\n")
     result = cli_runner.invoke(cli, ["config", "--config", str(bad_config)])
-    assert result.exit_code == 1
+    assert result.exit_code == EXIT_ERROR
     assert "Config validation failed" in result.output
 
 
@@ -160,7 +160,7 @@ def test_analyze_non_workflow(cli_runner, tmp_path):
     not_a_workflow = tmp_path / "plain.yml"
     not_a_workflow.write_text("hello: world\n")
     result = cli_runner.invoke(cli, ["analyze", str(not_a_workflow)])
-    assert result.exit_code == 1
+    assert result.exit_code == EXIT_ERROR
     assert "Error analyzing file" in result.output
 
 
