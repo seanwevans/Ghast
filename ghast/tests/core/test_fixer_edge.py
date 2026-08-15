@@ -116,7 +116,7 @@ def test_fix_workflow_file_dump_error_restores(
     def _boom(*args, **kwargs):
         raise RuntimeError("dump failed")
 
-    monkeypatch.setattr(fixer_module.yaml, "dump", _boom)
+    monkeypatch.setattr(fixer_module, "dump_workflow", _boom)
     applied, skipped = Fixer({}).fix_workflow_file(test_file, [_timeout_finding(test_file)])
     assert (applied, skipped) == (0, 0)
     # Original content restored, backup removed.

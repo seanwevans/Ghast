@@ -211,7 +211,10 @@ def test_fix_workflow_file(patchable_workflow_file, temp_dir):
 
     assert "name" in fixed_workflow
     assert fixed_workflow["jobs"]["build"]["timeout-minutes"] == 15
-    assert "shell" in fixed_workflow["jobs"]["build"]["steps"][2]
+    # Rules number steps one-based, so "step 2" is list index 1. The previous
+    # fixer resolved this to index 2 and this assertion tracked that bug.
+    assert "shell" in fixed_workflow["jobs"]["build"]["steps"][1]
+    assert "shell" not in fixed_workflow["jobs"]["build"]["steps"][2]
     assert fixed_workflow["jobs"]["build"]["steps"][0]["uses"] == "actions/checkout@v3"
 
 
