@@ -10,6 +10,7 @@ from .config import (
     generate_default_config,
     save_config,
     disable_rules,
+    unknown_rule_names,
     ConfigurationError,
 )
 from .fixer import fix_workflow_file, fix_repository, Fixer
@@ -23,6 +24,7 @@ __all__ = [
     "generate_default_config",
     "save_config",
     "disable_rules",
+    "unknown_rule_names",
     "ConfigurationError",
     "fix_workflow_file",
     "fix_repository",

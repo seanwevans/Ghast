@@ -16,10 +16,12 @@ import click
 from .core import (
     Finding,
     WorkflowScanner,
+    disable_rules,
     fix_repository,
     generate_default_config,
     load_config,
     scan_repository,
+    unknown_rule_names,
 )
 from .core.scanner import normalize_severity
 from .reports import generate_full_report, print_report, save_report
@@ -28,6 +30,24 @@ from .utils.banner import _BANNER
 from .utils.version import __version__
 
 OUTPUT_FORMATS = ["text", "json", "sarif", "html"]
+
+
+def _reject_unknown_rules(disable: Tuple[str, ...]) -> None:
+    """Fail loudly when --disable names a rule that does not exist.
+
+    Silently accepting a typo here is how a user ends up believing a rule is
+    off when it is still running.
+    """
+    unknown = unknown_rule_names(list(disable))
+    if not unknown:
+        return
+
+    from .rules.registry import all_rule_ids
+
+    raise click.ClickException(
+        f"Unknown rule(s) passed to --disable: {', '.join(unknown)}. "
+        f"Valid rules: {', '.join(all_rule_ids())}"
+    )
 
 
 def _prepare_scan(
@@ -74,9 +94,8 @@ def _prepare_scan(
     if disable:
         if config_data is None:
             config_data = {}
-        for rule in disable:
-            rule_key = rule if rule.startswith("check_") else f"check_{rule}"
-            config_data[rule_key] = False
+        _reject_unknown_rules(disable)
+        config_data = disable_rules(config_data, list(disable))
 
     path = Path(repo_path)
     if path.is_file() and path.suffix in [".yml", ".yaml"]:
@@ -265,8 +284,8 @@ def fix(
         config_data = {}
 
     if disable and len(disable) > 0:
-        for rule in disable:
-            config_data[rule] = False
+        _reject_unknown_rules(disable)
+        config_data = disable_rules(config_data, list(disable))
 
     path = Path(repo_path)
 

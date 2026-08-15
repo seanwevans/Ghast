@@ -25,7 +25,7 @@ def _copy(src, dst_dir, name):
 
 def _timeout_finding(file_path, message="Job 'build' has 6 steps but no timeout-minutes set"):
     return Finding(
-        rule_id="check_timeout",
+        rule_id="timeout",
         severity="LOW",
         message=message,
         file_path=file_path,
@@ -39,7 +39,7 @@ def test_fix_workflow_file_no_fixable_findings(patchable_workflow_file, temp_dir
     # rule_id is not among the registered fixers.
     findings = [
         Finding(
-            rule_id="check_tokens",
+            rule_id="token_security",
             severity="HIGH",
             message="hardcoded token",
             file_path=test_file,
@@ -58,7 +58,7 @@ def test_fix_workflow_file_missing_fixer_func(patchable_workflow_file, temp_dir)
 
     fixer = Fixer({})
     # Passes the membership filter but resolves to no fixer function.
-    fixer.fixers = _ContainsButNoGet({"check_timeout": fixer.fix_timeout})
+    fixer.fixers = _ContainsButNoGet({"timeout": fixer.fix_timeout})
     applied, skipped = fixer.fix_workflow_file(test_file, [_timeout_finding(test_file)])
     assert applied == 0
     assert skipped == 1
@@ -99,7 +99,7 @@ def test_fix_workflow_file_fixer_raises(patchable_workflow_file, temp_dir, capsy
         raise RuntimeError("kaboom")
 
     fixer = Fixer({})
-    fixer.fixers["check_timeout"] = _boom
+    fixer.fixers["timeout"] = _boom
     applied, skipped = fixer.fix_workflow_file(test_file, [_timeout_finding(test_file)])
     assert applied == 0
     assert skipped == 1
@@ -139,13 +139,13 @@ def test_fix_timeout_unknown_job():
 
 
 def test_fix_shell_no_match():
-    finding = Finding(rule_id="check_shell", severity="LOW", message="nope", file_path="f")
+    finding = Finding(rule_id="shell_specification", severity="LOW", message="nope", file_path="f")
     assert Fixer({}).fix_shell({"jobs": {}}, finding) is False
 
 
 def test_fix_shell_unknown_job():
     finding = Finding(
-        rule_id="check_shell",
+        rule_id="shell_specification",
         severity="LOW",
         message="Multiline script in job 'ghost' step 1 has no shell specified",
         file_path="f",
@@ -154,13 +154,15 @@ def test_fix_shell_unknown_job():
 
 
 def test_fix_deprecated_no_match():
-    finding = Finding(rule_id="check_deprecated", severity="MEDIUM", message="nope", file_path="f")
+    finding = Finding(
+        rule_id="deprecated_actions", severity="MEDIUM", message="nope", file_path="f"
+    )
     assert Fixer({}).fix_deprecated_actions({"jobs": {}}, finding) is False
 
 
 def test_fix_deprecated_no_replacement():
     finding = Finding(
-        rule_id="check_deprecated",
+        rule_id="deprecated_actions",
         severity="MEDIUM",
         message="Deprecated action 'actions/unknown@v1' in job 'build' step 1",
         file_path="f",
@@ -170,7 +172,7 @@ def test_fix_deprecated_no_replacement():
 
 def test_fix_deprecated_no_matching_step():
     finding = Finding(
-        rule_id="check_deprecated",
+        rule_id="deprecated_actions",
         severity="MEDIUM",
         message="Deprecated action 'actions/checkout@v1' in job 'build' step 1",
         file_path="f",
@@ -181,7 +183,7 @@ def test_fix_deprecated_no_matching_step():
 
 
 def _runs_on_finding(message="Missing 'runs-on' in job 'build'"):
-    return Finding(rule_id="check_runs_on", severity="MEDIUM", message=message, file_path="f")
+    return Finding(rule_id="runs_on", severity="MEDIUM", message=message, file_path="f")
 
 
 def test_fix_runs_on_adds_runner():
@@ -214,7 +216,7 @@ def test_fix_repository_skips_empty_and_unfixable(patchable_workflow_file, temp_
         empty_file: [],
         unfixable_file: [
             Finding(
-                rule_id="check_tokens",
+                rule_id="token_security",
                 severity="HIGH",
                 message="token",
                 file_path=unfixable_file,

@@ -231,7 +231,7 @@ def mock_findings():
 
     findings = [
         Finding(
-            rule_id="check_timeout",
+            rule_id="timeout",
             severity="LOW",
             message="Job 'build' has 6 steps but no timeout-minutes set",
             file_path="/path/to/workflow.yml",
@@ -240,7 +240,7 @@ def mock_findings():
             can_fix=True,
         ),
         Finding(
-            rule_id="check_shell",
+            rule_id="shell_specification",
             severity="LOW",
             message="Multiline script in job 'build' step 2 has no shell specified",
             file_path="/path/to/workflow.yml",
@@ -249,7 +249,7 @@ def mock_findings():
             can_fix=True,
         ),
         Finding(
-            rule_id="check_deprecated",
+            rule_id="deprecated_actions",
             severity="MEDIUM",
             message="Deprecated action 'actions/checkout@v1' in job 'build' step 1",
             file_path="/path/to/workflow.yml",
@@ -295,9 +295,9 @@ def mock_stats():
         "total_findings": 5,
         "severity_counts": {"CRITICAL": 1, "HIGH": 1, "MEDIUM": 1, "LOW": 2},
         "rule_counts": {
-            "check_timeout": 1,
-            "check_shell": 1,
-            "check_deprecated": 1,
+            "timeout": 1,
+            "shell_specification": 1,
+            "deprecated_actions": 1,
             "poisoned_pipeline_execution": 1,
             "command_injection": 1,
         },

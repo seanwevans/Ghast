@@ -296,6 +296,11 @@ class CommandInjectionRule(StepRule):
 class EnvironmentInjectionRule(StepRule):
     """Rule for detecting unsafe modifications to GITHUB_ENV and GITHUB_PATH"""
 
+    # Noisy enough to stay off unless asked for. Declaring it here rather than
+    # assigning self.enabled in __init__ means `environment_injection: true`
+    # in a config file can actually turn it on.
+    default_enabled = False
+
     def __init__(self) -> None:
         super().__init__(
             rule_id="environment_injection",
@@ -304,9 +309,6 @@ class EnvironmentInjectionRule(StepRule):
             remediation="Avoid modifying GITHUB_ENV or GITHUB_PATH after checking out untrusted code, or move environment modifications before checkout",
             category="security",
         )
-        # This rule can produce noisy results, so keep it disabled by default
-        # until explicitly enabled via configuration.
-        self.enabled = False
 
     def check(self, workflow: Dict[str, Any], file_path: str) -> List[Finding]:
         """Check for environment injection"""

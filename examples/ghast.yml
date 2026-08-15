@@ -1,43 +1,50 @@
-check_timeout: true
-check_shell: true
-check_deprecated: true
-check_runs_on: true
-check_workflow_name: true
-check_continue_on_error: true
-check_tokens: true
-check_inline_bash: true
-check_reusable_inputs: true
-check_ppe_vulnerabilities: true
-check_command_injection: true
-check_env_injection: true
+# ghast configuration
+#
+# Every key below is a rule id, exactly as reported in findings and listed by
+# `ghast rules`. Generate a fresh copy with:
+#
+#     ghast config --generate --output ghast.yml
+#
+permissions: true
+poisoned_pipeline_execution: true
+command_injection: true
+environment_injection: false
+token_security: true
+action_pinning: true
+timeout: true
+shell_specification: true
+workflow_name: true
+deprecated_actions: true
+continue_on_error: true
+reusable_workflow_inputs: true
 severity_thresholds:
-  check_timeout: LOW
-  check_shell: LOW
-  check_deprecated: MEDIUM
-  check_runs_on: MEDIUM
-  check_workflow_name: LOW
-  check_continue_on_error: MEDIUM
-  check_tokens: HIGH
-  check_inline_bash: LOW
-  check_reusable_inputs: MEDIUM
-  check_ppe_vulnerabilities: CRITICAL
-  check_command_injection: HIGH
-  check_env_injection: HIGH
+  permissions: HIGH
+  poisoned_pipeline_execution: CRITICAL
+  command_injection: HIGH
+  environment_injection: HIGH
+  token_security: HIGH
+  action_pinning: MEDIUM
+  timeout: LOW
+  shell_specification: LOW
+  workflow_name: LOW
+  deprecated_actions: MEDIUM
+  continue_on_error: MEDIUM
+  reusable_workflow_inputs: MEDIUM
 auto_fix:
   enabled: true
   rules:
-    check_timeout: true
-    check_shell: true
-    check_deprecated: true
-    check_workflow_name: true
-    check_runs_on: false
-    check_continue_on_error: false
-    check_tokens: false
-    check_inline_bash: true
-    check_reusable_inputs: false
-    check_ppe_vulnerabilities: false
-    check_command_injection: false
-    check_env_injection: false
+    permissions: true
+    poisoned_pipeline_execution: false
+    command_injection: false
+    environment_injection: false
+    token_security: true
+    action_pinning: false
+    timeout: true
+    shell_specification: true
+    workflow_name: true
+    deprecated_actions: true
+    continue_on_error: false
+    reusable_workflow_inputs: false
 default_timeout_minutes: 15
 default_action_versions:
   actions/checkout@v1: actions/checkout@v3

@@ -64,12 +64,15 @@ class Fixer:
         self.fixes_applied = 0
         self.fixes_skipped = 0
 
+        # Keyed by rule id, matching what findings actually carry. These were
+        # previously keyed by config-file names ("check_shell",
+        # "check_deprecated") that no finding ever used, so those two fixers
+        # could never run.
         self.fixers = {
-            "check_timeout": self.fix_timeout,
-            "check_shell": self.fix_shell,
-            "check_deprecated": self.fix_deprecated_actions,
-            "check_workflow_name": self.fix_workflow_name,
-            "check_runs_on": self.fix_runs_on,
+            "timeout": self.fix_timeout,
+            "shell_specification": self.fix_shell,
+            "deprecated_actions": self.fix_deprecated_actions,
+            "workflow_name": self.fix_workflow_name,
         }
 
     def fix_workflow_file(self, file_path: str, findings: List[Finding]) -> Tuple[int, int]:

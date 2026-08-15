@@ -22,22 +22,14 @@ def test_register_default_rules_shim_is_noop():
     assert scanner.register_default_rules() is None
 
 
-def test_normalize_rule_ids_for_rule_error():
-    scanner = WorkflowScanner()
-    findings = [
-        Finding(rule_id="rule_error.permissions", severity="LOW", message="m", file_path="f"),
-        Finding(rule_id="rule_error.check_timeout", severity="LOW", message="m", file_path="f"),
-        Finding(rule_id="permissions", severity="HIGH", message="m", file_path="f"),
-        Finding(rule_id="check_timeout", severity="LOW", message="m", file_path="f"),
-    ]
-    normalized = scanner._normalize_rule_ids(findings)
-    ids = [f.rule_id for f in normalized]
-    assert ids == [
-        "rule_error.check_permissions",
-        "rule_error.check_timeout",
-        "check_permissions",
-        "check_timeout",
-    ]
+def test_scan_file_reports_bare_rule_ids(patchable_workflow_file):
+    """Findings carry the rule's own id, not a `check_`-prefixed rewrite."""
+    findings = WorkflowScanner().scan_file(patchable_workflow_file)
+
+    assert findings
+    reported = {f.rule_id for f in findings}
+    assert "permissions" in reported
+    assert not any(rule_id.startswith("check_") for rule_id in reported)
 
 
 def test_scan_directory_without_workflows(temp_dir):

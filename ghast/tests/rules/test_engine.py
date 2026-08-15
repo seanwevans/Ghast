@@ -231,7 +231,7 @@ def test_scan_workflow_with_rule_error():
 
 
 def test_engine_matches_scanner_findings(action_pinning_workflow_file):
-    """RuleEngine findings should match scanner delegation output."""
+    """RuleEngine findings should match scanner delegation output exactly."""
 
     workflow = load_yaml_file_with_positions(action_pinning_workflow_file)
     engine = RuleEngine()
@@ -240,24 +240,13 @@ def test_engine_matches_scanner_findings(action_pinning_workflow_file):
     engine_findings = engine.scan_workflow(workflow, action_pinning_workflow_file)
     scanner_findings = scanner.scan_file(action_pinning_workflow_file)
 
-    assert [
-        (f.rule_id, f.severity, f.message, f.line_number, f.column, f.can_fix)
-        for f in scanner_findings
-    ] == [
-        (
-            (
-                f"rule_error.check_{f.rule_id.split('.', 1)[1]}"
-                if f.rule_id.startswith("rule_error.")
-                else (f.rule_id if f.rule_id.startswith("check_") else f"check_{f.rule_id}")
-            ),
-            f.severity,
-            f.message,
-            f.line_number,
-            f.column,
-            f.can_fix,
-        )
-        for f in engine_findings
-    ]
+    def shape(collection):
+        return [
+            (f.rule_id, f.severity, f.message, f.line_number, f.column, f.can_fix)
+            for f in collection
+        ]
+
+    assert shape(scanner_findings) == shape(engine_findings)
 
 
 def test_fix_findings():
