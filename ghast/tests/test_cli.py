@@ -76,7 +76,7 @@ def test_cli_scan_nonexistent_repo():
         with pytest.raises(click.ClickException) as excinfo:
             cli.main(["scan", non_existent], standalone_mode=False)
         assert excinfo.value.exit_code == EXIT_ERROR
-        assert "No workflows found" in str(excinfo.value)
+        assert "No workflows or actions found" in str(excinfo.value)
 
 
 def test_cli_scan_empty_repo():
@@ -89,7 +89,7 @@ def test_cli_scan_empty_repo():
             cli.main(["scan", temp_dir], standalone_mode=False)
         assert excinfo.value.exit_code == EXIT_ERROR
         message = str(excinfo.value)
-        assert "No workflows found" in message or "Found 0 workflow" in message
+        assert "No workflows or actions found" in message
 
 
 def test_cli_scan_repo(cli_runner, mock_repo):

@@ -15,6 +15,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import yaml
 
 from ..utils.yaml_handler import get_position, load_yaml_file_with_positions
+from .discovery import (
+    WORKFLOW_ONLY_RULES,
+    adapt_action_to_workflow,
+    discover_targets,
+    is_action_definition,
+)
 from .suppressions import apply_suppressions, load_suppressions
 
 
@@ -135,6 +141,18 @@ class WorkflowScanner:
 
         try:
             content = load_yaml_file_with_positions(file_path)
+            workflow_only_rules: frozenset = frozenset()
+
+            if is_action_definition(content):
+                # A composite action runs steps with the same supply-chain
+                # exposure as a workflow. Present them as a single-job workflow
+                # so every step rule applies without knowing a second schema.
+                adapted = adapt_action_to_workflow(content)
+                if adapted is None:
+                    # A JavaScript or Docker action has no steps to check.
+                    return findings
+                content = adapted
+                workflow_only_rules = WORKFLOW_ONLY_RULES
 
             # Validate that the file appears to be a GitHub Actions workflow. If
             # the top-level structure is not a mapping or required keys are
@@ -151,7 +169,11 @@ class WorkflowScanner:
             above_threshold = [
                 finding
                 for finding in engine_findings
-                if SEVERITY_LEVELS.index(normalize_severity(finding.severity))
+                # Triggers, permissions and job timeouts have no analogue in an
+                # action file; reporting them would be noise the author cannot
+                # act on.
+                if finding.rule_id not in workflow_only_rules
+                and SEVERITY_LEVELS.index(normalize_severity(finding.severity))
                 >= SEVERITY_LEVELS.index(normalized_threshold)
             ]
 
@@ -201,16 +223,10 @@ class WorkflowScanner:
         """
         findings: List[Finding] = []
 
-        workflow_dir = Path(directory_path) / ".github" / "workflows"
-        if not workflow_dir.exists():
-            return findings
-
-        for file_path in workflow_dir.glob("*.y*ml"):
-            file_findings = self.scan_file(str(file_path), severity_threshold)
-            findings.extend(file_findings)
+        for target in discover_targets(directory_path):
+            findings.extend(self.scan_file(str(target.path), severity_threshold))
 
         return findings
-
 
 
 def scan_repository(
@@ -233,7 +249,7 @@ def scan_repository(
     """
     scanner = WorkflowScanner(strict=strict, config=config)
 
-    workflow_dir = Path(repo_path) / ".github" / "workflows"
+    targets = discover_targets(repo_path)
     all_findings: List[Finding] = []
     stats: Dict[str, Any] = {
         "start_time": datetime.now().isoformat(),
@@ -246,12 +262,12 @@ def scan_repository(
         "suppressed_findings": 0,
     }
 
-    if not workflow_dir.exists():
+    if not targets:
         return all_findings, stats
 
-    for workflow_file in workflow_dir.glob("*.y*ml"):
+    for target in targets:
         stats["total_files"] += 1
-        file_findings = scanner.scan_file(str(workflow_file), severity_threshold)
+        file_findings = scanner.scan_file(str(target.path), severity_threshold)
 
         for finding in file_findings:
             stats["total_findings"] += 1

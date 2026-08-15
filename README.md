@@ -234,6 +234,38 @@ ghast scan /path/to/repo --output-file results.txt
 ghast scan /path/to/repo --verbose
 ```
 
+### What gets scanned
+
+```bash
+ghast scan /path/to/repo        # .github/workflows/*.yml plus every action.yml
+ghast scan ./workflows          # a bare directory of workflow files
+ghast scan .github/workflows/ci.yml   # a single file
+```
+
+**Composite actions are scanned too.** An `action.yml` runs steps with the same
+supply-chain exposure as a workflow — unpinned `uses`, unspecified shells,
+untrusted `${{ }}` interpolation — so ghast checks them with the same
+step-level rules:
+
+```
+Found 2 file(s) to scan (1 composite action(s))
+
+File: actions/build/action.yml
+❗ HIGH: Untrusted issue title/body interpolated into a shell command in job 'runs' step 3
+⚠️ MEDIUM: Step 1 in job 'runs' is not pinned to a specific commit SHA: actions/checkout@v3
+```
+
+Steps are reported under the job name `runs`, matching the `runs:` key they
+live under in the action file. Rules that describe a workflow rather than a
+step — `permissions`, `poisoned_pipeline_execution`, `timeout`,
+`workflow_name`, `reusable_workflow_inputs` — are not reported for actions,
+since an action declares no triggers, holds no permissions, and cannot set a
+job timeout. JavaScript and Docker actions have no step surface and produce no
+findings.
+
+`node_modules`, `.venv`, `.git` and similar directories are skipped: vendored
+actions belong to their upstream.
+
 ### Exit codes
 
 `ghast scan` distinguishes "your workflows have problems" from "ghast could

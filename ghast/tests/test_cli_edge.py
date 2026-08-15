@@ -103,7 +103,7 @@ def test_fix_repository_no_workflows(cli_runner, tmp_path):
     empty.mkdir()
     result = cli_runner.invoke(cli, ["fix", str(empty)])
     assert result.exit_code == EXIT_ERROR
-    assert "No workflows found" in result.output
+    assert "No workflows or actions found" in result.output
 
 
 def test_fix_clean_workflow_no_issues(cli_runner, tmp_path):

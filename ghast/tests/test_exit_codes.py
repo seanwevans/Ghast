@@ -72,7 +72,7 @@ def test_missing_workflows_exits_two(runner, tmp_path):
     result = runner.invoke(cli, ["scan", str(tmp_path)])
 
     assert result.exit_code == EXIT_ERROR
-    assert "No workflows found" in result.output
+    assert "No workflows or actions found" in result.output
 
 
 def test_missing_config_exits_two(runner, tmp_path):
