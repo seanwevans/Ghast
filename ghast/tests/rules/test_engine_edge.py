@@ -64,18 +64,29 @@ def test_apply_config_exact_rule_id_severity():
     assert engine.get_rule_by_id("timeout").severity == "HIGH"
 
 
-def test_apply_config_short_rule_id_disables():
-    # "deprecated_actions" -> short id "deprecated"
-    engine = RuleEngine(config={"deprecated": False})
+def test_apply_config_legacy_alias_disables():
+    """`check_deprecated` was the documented name for `deprecated_actions`."""
+    engine = RuleEngine(config={"check_deprecated": False})
     rule = engine.get_rule_by_id("deprecated_actions")
     assert rule is not None
     assert rule.enabled is False
 
 
-def test_apply_config_short_rule_id_severity():
-    engine = RuleEngine(config={"severity_thresholds": {"deprecated": "CRITICAL"}})
+def test_apply_config_legacy_alias_severity():
+    engine = RuleEngine(config={"severity_thresholds": {"check_deprecated": "CRITICAL"}})
     rule = engine.get_rule_by_id("deprecated_actions")
     assert rule.severity == "CRITICAL"
+
+
+def test_apply_config_check_prefixed_canonical_id():
+    """Findings used to be reported as `check_<id>`, so accept that spelling."""
+    engine = RuleEngine(config={"check_token_security": False})
+    assert engine.get_rule_by_id("token_security").enabled is False
+
+
+def test_apply_config_ignores_unknown_key():
+    engine = RuleEngine(config={"not_a_rule": False})
+    assert all(rule.enabled for rule in engine.rules if rule.rule_id != "environment_injection")
 
 
 def test_enable_rule_unknown_returns_false():

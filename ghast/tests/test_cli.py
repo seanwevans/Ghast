@@ -239,7 +239,7 @@ def test_cli_config_generate(cli_runner, temp_dir):
 
     with open(config_file, "r") as f:
         content = f.read()
-    assert "check_timeout" in content
+    assert "timeout" in content
     assert "severity_thresholds" in content
     assert "auto_fix" in content
 

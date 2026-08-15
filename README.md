@@ -181,8 +181,8 @@ ghast scan /path/to/repo --config ghast.yml
 # Generate a default config file
 ghast config --generate --output ghast.yml
 
-# Disable specific rules
-ghast scan /path/to/repo --disable check_tokens --disable check_deprecated
+# Disable specific rules (by rule ID; run `ghast rules` to list them)
+ghast scan /path/to/repo --disable token_security --disable deprecated_actions
 ```
 
 ### Reporting
@@ -200,39 +200,43 @@ ghast report /path/to/repo --output report.html
 
 ## ⚙️ Configuration File
 
-ghast can be configured using a YAML configuration file:
+ghast can be configured using a YAML configuration file.
 
-A complete example with default settings is available in `examples/ghast.yml`. Copy this file and modify it as needed.
+**Config keys are rule IDs** — the same names shown in findings and listed by
+`ghast rules`. There is one name per rule, everywhere.
+
+A complete example with default settings is available in `examples/ghast.yml`.
+Generate a fresh one at any time with `ghast config --generate --output ghast.yml`.
 
 ```yaml
-# Enable/disable rules
-check_timeout: true
-check_shell: true
-check_deprecated: true
-check_runs_on: true
-check_workflow_name: true
-check_continue_on_error: true
-check_tokens: true
-check_inline_bash: true
-check_reusable_inputs: true
-check_ppe_vulnerabilities: true
-check_command_injection: true
-check_env_injection: true
+# Enable/disable rules, keyed by rule ID
+permissions: true
+poisoned_pipeline_execution: true
+command_injection: true
+environment_injection: false   # off by default; set true to enable
+token_security: true
+action_pinning: true
+timeout: true
+shell_specification: true
+workflow_name: true
+deprecated_actions: true
+continue_on_error: true
+reusable_workflow_inputs: true
 
 # Configure severity thresholds
 severity_thresholds:
-  check_timeout: "LOW"
-  check_tokens: "HIGH"
-  check_ppe_vulnerabilities: "CRITICAL"
+  timeout: "LOW"
+  token_security: "HIGH"
+  poisoned_pipeline_execution: "CRITICAL"
 
 # Auto-fix settings
 auto_fix:
   enabled: true
   rules:
-    check_timeout: true
-    check_shell: true
-    check_deprecated: true
-    check_workflow_name: true
+    timeout: true
+    shell_specification: true
+    deprecated_actions: true
+    workflow_name: true
 
 # Default timeouts for auto-fix
 default_timeout_minutes: 15
@@ -242,6 +246,29 @@ default_action_versions:
   actions/checkout@v1: actions/checkout@v3
   actions/setup-python@v1: actions/setup-python@v4
 ```
+
+### Migrating from `check_*` names
+
+Earlier versions used a separate set of `check_*` config keys that did not
+match the rule IDs. Most of them silently had no effect. The old names are
+still accepted and now do what they always claimed to, but ghast prints a
+warning telling you what to rename them to:
+
+| Old key | Rule ID |
+|---------|---------|
+| `check_timeout` | `timeout` |
+| `check_shell` | `shell_specification` |
+| `check_deprecated` | `deprecated_actions` |
+| `check_workflow_name` | `workflow_name` |
+| `check_continue_on_error` | `continue_on_error` |
+| `check_tokens` | `token_security` |
+| `check_reusable_inputs` | `reusable_workflow_inputs` |
+| `check_ppe_vulnerabilities` | `poisoned_pipeline_execution` |
+| `check_command_injection` | `command_injection` |
+| `check_env_injection` | `environment_injection` |
+
+`check_runs_on` and `check_inline_bash` named rules that were never
+implemented. They still load, with a warning, and can be deleted.
 
 ---
 

@@ -26,6 +26,12 @@ def _is_true(value: Any) -> bool:
 class Rule(ABC):
     """Base class for all ghast security rules"""
 
+    #: Whether the rule runs unless configuration says otherwise. Rules that
+    #: are too noisy to run by default set this to False, which makes the
+    #: default visible in the generated config instead of being hardcoded in
+    #: __init__ where no configuration could reach it.
+    default_enabled: bool = True
+
     def __init__(
         self,
         rule_id: str,
@@ -49,7 +55,7 @@ class Rule(ABC):
         self.description = description
         self.remediation = remediation
         self.category = category
-        self.enabled = True
+        self.enabled = self.default_enabled
 
         self.can_fix = False
 
