@@ -35,7 +35,7 @@ dependencies = [
     "click>=8.4.2",
     "pyyaml>=6.0",
     "ruamel.yaml>=0.19.1",
-    "colorama>=0.4.4; platform_system=='Windows'",
+    "colorama>=0.4.6; platform_system=='Windows'",
 ]
 
 [project.optional-dependencies]
