@@ -32,7 +32,7 @@ classifiers = [
 keywords = ["github", "actions", "security", "workflows", "ci", "cd", "pipeline", "static-analysis", "linter"]
 requires-python = ">=3.10"
 dependencies = [
-    "click>=8.4.2",
+    "click>=8.5.0",
     "pyyaml>=6.0",
     "ruamel.yaml>=0.19.1",
     "colorama>=0.4.4; platform_system=='Windows'",
